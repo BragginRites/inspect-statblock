@@ -1,7 +1,10 @@
-# Inspect Statblock (Auto-Updating, Multiple Windows)
+# Inspect Statblock
 *For dnd5e*
 
-If you're sick of telling your players the stats of a creature, that they would look up anyway, this module is for you.
+![image](https://github.com/user-attachments/assets/74868523-6365-4caf-8e0c-f75901587ac1)
+
+
+If you're sick of telling your players the stats of a creature that they would look up anyway, this module is for you.
 This module displays a creature's statblock in a custom floating window with real-time updates. If CR is unknown, it shows "Player Character." Passive features display authentic Foundry item sheet tooltips on hover. Clicking the creature name toggles a pop-out portrait that automatically scales to fit the statblock's height. Users can open multiple statblocks, and pressing Alt+I closes all open windows.
 
 ## Features
