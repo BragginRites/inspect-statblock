@@ -5,7 +5,8 @@
 
 
 If you're sick of telling your players the stats of a creature that they would look up anyway, this module is for you.
-This module displays a creature's statblock in a custom floating window with real-time updates. If CR is unknown, it shows "Player Character." Passive features display authentic Foundry item sheet tooltips on hover. Clicking the creature name toggles a pop-out portrait that automatically scales to fit the statblock's height. Users can open multiple statblocks, and pressing Alt+I closes all open windows.
+This module displays a creature's statblock in a custom floating window with real-time updates. Passive features display item sheet tooltips on hover. Users can open multiple statblocks, persisting on screen between scenes.
+Pressing Alt+I closes all open windows.
 
 ## Features
 
