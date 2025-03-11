@@ -1,0 +1,40 @@
+{
+    "id": "inspect-statblock",
+    "title": "Inspect Statblock",
+    "description": "A module that allows you to inspect the statblock of a token.",
+    "authors": [
+      {
+        "name": "BragginRites",
+        "discord": "BragginRites"
+      }
+    ],
+    "version": "1.0.0",
+    "compatibility": {
+      "minimum": "12",
+      "verified": "12",
+      "maximum": "12"
+    },
+    "scripts": [
+      "scripts/main.js"
+    ],
+    "styles": [
+      "styles/statblock.css"
+    ],
+    "templates": [
+      "templates/statblock.html"
+    ],
+    "languages": [
+      {
+        "lang": "en",
+        "name": "English",
+        "path": "languages/en.json"
+      }
+    ],
+    "url": "https://github.com/BragginRites/inspect-statblock",
+    "manifest": "https://github.com/BragginRites/inspect-statblock/releases/download/0.1.0/module.json",
+    "download": "https://github.com/BragginRites/inspect-statblock/releases/download/0.1.0/module.zip",
+    "license": "MIT",
+    "readme": "README.md",
+    "bugs": "https://github.com/BragginRites/inspect-statblock/issues"
+  }
+  

@@ -1,0 +1,59 @@
+<link rel="stylesheet" type="text/css" href="modules/inspect-statblock/styles/statblock.css">
+<div class="statblock-container">
+  <div class="statblock-details">
+    <h2 id="openPortrait">{{actorName}}</h2>
+    <div class="info-section">
+      <p><strong>CR:</strong> {{creatureCR}}</p>
+      <p><strong>Type:</strong> {{creatureType}}</p>
+      <p><strong>Size:</strong> {{creatureSize}}</p>
+      <p>
+        <strong>Armor Class:</strong> {{armorClass}}<br>
+        <small>({{armorDescription}})</small>
+      </p>
+    </div>
+    <div class="info-section">
+      <p><strong>Ability Scores:</strong></p>
+      <table class="ability-table">
+        <thead>
+          <tr>
+            <th>Ability</th>
+            <th>Score</th>
+            <th>Modifier</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each abilityRows}}
+            <tr>
+              <td><strong>{{this.ability}}</strong></td>
+              <td>{{this.score}}</td>
+              <td>{{this.modifier}}</td>
+            </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+    <div class="info-section">
+      <p><strong>Resistances:</strong> {{damageResistances}}</p>
+      <p><strong>Immunities:</strong> {{damageImmunities}}</p>
+      <p><strong>Vulnerabilities:</strong> {{damageVulnerabilities}}</p>
+      <p><strong>Condition Immunities:</strong> {{conditionImmunities}}</p>
+    </div>
+    {{#if passiveFeatures.length}}
+    <div class="info-section">
+      <p><strong>Passive Features:</strong></p>
+      <ul class="passive-features">
+        {{#each passiveFeatures}}
+          <li>
+            <div class="passive-feature-header" data-item-id="{{this.id}}">
+              {{this.name}}
+            </div>
+            <div class="passive-feature-body">
+              {{this.description}}
+            </div>
+          </li>
+        {{/each}}
+      </ul>
+    </div>
+    {{/if}}
+  </div>
+</div>
