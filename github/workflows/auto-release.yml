@@ -1,0 +1,79 @@
+name: Auto Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Extract Version from module.json
+        id: get_version
+        run: |
+          VERSION=$(jq -r '.version' module.json)
+          echo "Found version: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
+          PACKAGE_ID=$(jq -r '.id' module.json)
+          echo "PACKAGE_ID=$PACKAGE_ID" >> $GITHUB_ENV
+
+      - name: Extract Latest Changelog Entry
+        id: get_changelog
+        run: |
+          CHANGELOG=$(awk '
+            /^### \[[0-9]+\.[0-9]+\.[0-9]+/ {
+              if (p) { exit }
+              p=1
+              next
+            }
+            p { print }
+          ' CHANGELOG.md | sed '/^[[:space:]]*$/d')
+          
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Create Git Tag
+        id: tag
+        run: |
+          TAG="${{ env.VERSION }}"
+          echo "Creating tag: $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "::set-output name=tag::$TAG"
+
+      - name: Create Module ZIP
+        run: |
+          zip -r inspect-statblock.zip . \
+            -x "*.git*" \
+               ".github*" \
+               "*.vscode*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Release ${{ steps.tag.outputs.tag }}
+          body: ${{ env.CHANGELOG }}
+          files: |
+            inspect-statblock.zip
+            module.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
