@@ -1,4 +1,5 @@
 ### [0.1.0] (2025-03-12)
+
 - Initial release
 - Multiple statblock window support
 - Player character level and class display
