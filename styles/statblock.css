@@ -79,7 +79,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 16px;
+    font-size: 32px;
     font-weight: bold;
     color: #fff;
     text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
@@ -418,6 +418,13 @@
     line-height: 1.4;
 }
 
+.custom-tooltip.inspect-statblock .tooltip-duration {
+    color: #aaa;
+    font-size: 0.9em;
+    margin: 2px 0 6px;
+    font-style: italic;
+}
+
 /* Override Foundry's default window styling */
 .inspect-statblock .dark-app-window.app.window-app {
     background: none !important;
@@ -442,5 +449,60 @@
     border-bottom-right-radius: 8px !important;
     color: #ddd !important;
     padding: 0 !important;
+}
+
+/* Active Effects section */
+.floating-window.inspect-statblock .active-effects {
+    padding: 10px;
+    margin: 10px;
+    background: #2a2a2a;
+    border-radius: 5px;
+}
+
+.floating-window.inspect-statblock .active-effects .section-title {
+    text-align: center;
+    color: #f0ad4e;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.floating-window.inspect-statblock .effects-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.floating-window.inspect-statblock .effect-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    font-size: 0.9em;
+}
+
+.floating-window.inspect-statblock .effect-tag img {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+}
+
+.floating-window.inspect-statblock .effect-tag span {
+    color: #ddd;
+}
+
+.floating-window.inspect-statblock .effect-duration {
+    color: #aaa;
+    font-size: 0.8em;
+    margin-left: 4px;
+}
+
+.floating-window.inspect-statblock .no-effects {
+    color: #888;
+    font-style: italic;
+    padding: 4px 0;
 }
   

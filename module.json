@@ -8,8 +8,7 @@
         "discord": "BragginRites"
       }
     ],
-    "version": "0.1.0",
-    "compatibility": {
+    "version": "0.2.0",    "compatibility": {
       "minimum": "12",
       "verified": "12",
       "maximum": "12"
@@ -31,8 +30,8 @@
       }
     ],
     "url": "https://github.com/BragginRites/inspect-statblock",
-    "manifest": "https://github.com/BragginRites/inspect-statblock/releases/download/0.1.0/module.json",
-    "download": "https://github.com/BragginRites/inspect-statblock/releases/download/0.1.0/module.zip",
+    "manifest": "https://github.com/BragginRites/inspect-statblock/releases/download/0.2.0/module.json",
+    "download": "https://github.com/BragginRites/inspect-statblock/releases/download/0.2.0/module.zip",
     "license": "MIT",
     "readme": "README.md",
     "bugs": "https://github.com/BragginRites/inspect-statblock/issues"

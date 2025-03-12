@@ -10,7 +10,27 @@ Hooks.once('init', () => {
     scope: "world",
     config: true,
     type: Boolean,
-    default: true
+    default: false
+  });
+
+  // Register setting for hiding special durations
+  game.settings.register("inspect-statblock", "hideSpecialDurations", {
+    name: "Hide Special Duration Conditions",
+    hint: "If enabled, special duration conditions (like 'expires on save') will not be shown in effect tooltips.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  // Register setting for hiding HP information
+  game.settings.register("inspect-statblock", "hideHPInfo", {
+    name: "Hide HP Information",
+    hint: "If enabled, HP, temporary HP, and temporary max HP will not be shown in the statblock.",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false
   });
 
   game.keybindings.register("inspect-statblock", "openStatblock", {
@@ -69,6 +89,29 @@ Hooks.once('ready', () => {
       rerenderStatblock(actor);
     }
   });
+
+  // Add hooks for active effects
+  Hooks.on("createActiveEffect", (effect, options, userId) => {
+    const actor = effect.parent;
+    if (actor && openStatblocks[actor.id]) {
+      console.log(`Effect created for ${actor.name}. Re-rendering statblock...`);
+      rerenderStatblock(actor);
+    }
+  });
+  Hooks.on("updateActiveEffect", (effect, data, options, userId) => {
+    const actor = effect.parent;
+    if (actor && openStatblocks[actor.id]) {
+      console.log(`Effect updated for ${actor.name}. Re-rendering statblock...`);
+      rerenderStatblock(actor);
+    }
+  });
+  Hooks.on("deleteActiveEffect", (effect, options, userId) => {
+    const actor = effect.parent;
+    if (actor && openStatblocks[actor.id]) {
+      console.log(`Effect deleted for ${actor.name}. Re-rendering statblock...`);
+      rerenderStatblock(actor);
+    }
+  });
 });
 
 /*******************************
@@ -85,7 +128,7 @@ function closeAllStatblockWindows() {
     const statblockDiv = document.getElementById(`statblock-window-${actorId}`);
     if (statblockDiv) {
       // Clean up any tooltips in this statblock before removal.
-      const links = statblockDiv.querySelectorAll(".passive-feature-link");
+      const links = statblockDiv.querySelectorAll(".passive-feature-link, .effect-tag");
       links.forEach(link => {
         if (link._customTooltip) {
           link._customTooltip.remove();
@@ -181,7 +224,12 @@ function createStatblockWindow(actor, token) {
   } else {
     // For NPCs/monsters, get their CR and type
     const cr = details?.cr ?? "?";
-    levelOrCR = `CR ${cr}`;
+    // Format fractional CR values
+    const formattedCR = cr === 0.25 ? "1/4" :
+                        cr === 0.125 ? "1/8" :
+                        cr === 0.5 ? "1/2" :
+                        cr;
+    levelOrCR = `CR ${formattedCR}`;
     typeOrClass = details?.type?.value 
       ? details.type.value.charAt(0).toUpperCase() + details.type.value.slice(1)
       : "Unknown";
@@ -245,7 +293,7 @@ function createStatblockWindow(actor, token) {
   titleBar.classList.add("floating-title-bar", "inspect-statblock");
   titleBar.innerHTML = `
     <div style="display: flex; justify-content: flex-end; width: 100%;">
-      <span class="floating-close">✕</span>
+    <span class="floating-close">✕</span>
     </div>
   `;
   statblockDiv.appendChild(titleBar);
@@ -294,8 +342,16 @@ function createStatblockWindow(actor, token) {
       </div>
 
       <div class="health-section">
-        <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}</div>
-        ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
+        ${(() => {
+          const hideHP = game.settings.get("inspect-statblock", "hideHPInfo");
+          if (hideHP) {
+            return '<div class="current-health hidden">HP Hidden</div>';
+          }
+          return `
+            <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}</div>
+            ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
+          `;
+        })()}
       </div>
 
       <div class="ability-scores">
@@ -306,6 +362,32 @@ function createStatblockWindow(actor, token) {
             <div class="ability-mod">${val.mod >= 0 ? '+' : ''}${val.mod}</div>
           </div>
         `).join('')}
+      </div>
+
+      <div class="active-effects">
+        <div class="section-title">Active Effects</div>
+        <div class="effects-grid">
+          ${actor.effects.filter(e => !e.disabled).map(effect => `
+            <div class="effect-tag" title="${effect.name}" data-effect-id="${effect.id}">
+              <img src="${effect.icon}" alt="${effect.name}">
+              <span>${effect.name}</span>
+              ${(() => {
+                const duration = effect.duration;
+                if (duration.rounds || duration.turns) {
+                  const parts = [];
+                  if (duration.rounds) {
+                    parts.push(`${duration.rounds} ${duration.rounds === 1 ? 'Round' : 'Rounds'}`);
+                  }
+                  if (duration.turns) {
+                    parts.push(`${duration.turns} ${duration.turns === 1 ? 'Turn' : 'Turns'}`);
+                  }
+                  return `<div class="effect-duration">${parts.join(', ')}</div>`;
+                }
+                return '';
+              })()}
+            </div>
+          `).join('') || '<div class="no-effects">No Active Effects</div>'}
+        </div>
       </div>
 
       <div class="defenses-grid">
@@ -384,7 +466,7 @@ function createStatblockWindow(actor, token) {
 
   // When closing the statblock, also remove any active tooltips.
   titleBar.querySelector(".floating-close").addEventListener("click", () => {
-    const links = statblockDiv.querySelectorAll(".passive-feature-link");
+    const links = statblockDiv.querySelectorAll(".passive-feature-link, .effect-tag");
     links.forEach(link => {
       if (link._customTooltip) {
         link._customTooltip.remove();
@@ -396,6 +478,7 @@ function createStatblockWindow(actor, token) {
   });
 
   attachPassiveFeatureTooltips(contentArea, actor);
+  attachEffectTooltips(contentArea, actor);
 }
 
 /*******************************
@@ -616,6 +699,287 @@ function attachPassiveFeatureTooltips(container, actor) {
       if (link._customTooltip && !link._customTooltip._pinned) {
         link._customTooltip.remove();
         link._customTooltip = null;
+      }
+    });
+  });
+}
+
+/*******************************
+ * attachEffectTooltips (Custom Tooltip)
+ *******************************/
+function attachEffectTooltips(container, actor) {
+  const effectTags = container.querySelectorAll(".effect-tag");
+
+  effectTags.forEach(tag => {
+    const effectId = tag.getAttribute("data-effect-id");
+    const effect = actor.effects.get(effectId);
+    if (!effect) return;
+
+    tag.addEventListener("mouseenter", async (e) => {
+      if (tag._customTooltip) return;
+
+      const tooltip = document.createElement("div");
+      tooltip.classList.add("custom-tooltip", "dnd5e", "sheet", "inspect-statblock");
+      tooltip._pinned = false;
+
+      const icon = document.createElement("img");
+      icon.src = effect.icon;
+      icon.classList.add("tooltip-icon");
+
+      const contentDiv = document.createElement("div");
+      contentDiv.classList.add("tooltip-content", "inspect-statblock");
+
+      const nameEl = document.createElement("div");
+      nameEl.classList.add("tooltip-name", "inspect-statblock");
+      nameEl.textContent = effect.name;
+
+      const durationEl = document.createElement("div");
+      durationEl.classList.add("tooltip-duration", "inspect-statblock");
+      
+      // Debug logging
+      console.log('Effect duration data:', {
+        name: effect.name,
+        duration: effect.duration,
+        remaining: effect.duration.remaining,
+        type: effect.duration.type,
+        flags: effect.flags
+      });
+      
+      // Handle duration display with priority for special durations
+      let durationText = "";
+      
+      const hasSpecialDuration = effect.flags?.dae?.specialDuration;
+      const duration = effect.duration;
+      const hasTimeBasedDuration = duration.rounds || duration.turns;
+      const hideSpecialDurations = game.settings.get("inspect-statblock", "hideSpecialDurations");
+      
+      if (hasSpecialDuration && !hideSpecialDurations) {
+        const specialDurations = Array.isArray(effect.flags.dae.specialDuration) 
+          ? effect.flags.dae.specialDuration 
+          : [effect.flags.dae.specialDuration];
+        
+        const specialDurationMap = {
+          'isDamaged': 'the target takes any damage',
+          'isAttacked': 'the target is attacked',
+          'isHit': 'the target is hit by an attack',
+          'isSave': 'the target makes any saving throw',
+          'isSaveSuccess': 'the target succeeds on any saving throw',
+          'isSaveFail': 'the target fails any saving throw',
+          'isSaveStr': 'the target makes a Strength saving throw',
+          'isSaveDex': 'the target makes a Dexterity saving throw',
+          'isSaveCon': 'the target makes a Constitution saving throw',
+          'isSaveInt': 'the target makes an Intelligence saving throw',
+          'isSaveWis': 'the target makes a Wisdom saving throw',
+          'isSaveCha': 'the target makes a Charisma saving throw',
+          'isCheck': 'the target makes any ability check',
+          'isSkill': 'the target makes any skill check',
+          'longRest': 'a long rest is taken',
+          'shortRest': 'a short rest is taken',
+          'newDay': 'the next day begins',
+          'newRound': 'the next round begins',
+          'turnStart': 'their turn starts',
+          'turnEnd': 'their turn ends'
+        };
+
+        const damageTypeMap = {
+          'acid': 'acid',
+          'bludgeoning': 'bludgeoning',
+          'cold': 'cold',
+          'fire': 'fire',
+          'force': 'force',
+          'lightning': 'lightning',
+          'necrotic': 'necrotic',
+          'piercing': 'piercing',
+          'poison': 'poison',
+          'psychic': 'psychic',
+          'radiant': 'radiant',
+          'slashing': 'slashing',
+          'thunder': 'thunder'
+        };
+        
+        const formattedDurations = specialDurations.map(duration => {
+          if (typeof duration === 'string') {
+            const parts = duration.split('.');
+            if (parts.length > 1) {
+              const [condition, type] = parts;
+              if (condition === 'isSave') {
+                const abilityNames = {
+                  'str': 'Strength',
+                  'dex': 'Dexterity',
+                  'con': 'Constitution',
+                  'int': 'Intelligence',
+                  'wis': 'Wisdom',
+                  'cha': 'Charisma'
+                };
+                return `the target makes a ${abilityNames[type] || type} saving throw`;
+              }
+              if (condition === 'isCheck') {
+                const abilityNames = {
+                  'str': 'Strength',
+                  'dex': 'Dexterity',
+                  'con': 'Constitution',
+                  'int': 'Intelligence',
+                  'wis': 'Wisdom',
+                  'cha': 'Charisma'
+                };
+                return `the target makes a ${abilityNames[type] || type} ability check`;
+              }
+              if (condition === 'isSkill') {
+                return `the target makes a ${type.charAt(0).toUpperCase() + type.slice(1)} check`;
+              }
+              if (condition === 'isDamaged') {
+                const damageType = damageTypeMap[type.toLowerCase()];
+                return damageType ? `the target takes ${damageType} damage` : `the target takes ${type} damage`;
+              }
+            }
+            return specialDurationMap[duration] || duration;
+          }
+          return duration;
+        });
+        
+        durationText = `Expires when ${formattedDurations.join(' or ')}`;
+        
+        // Add time-based duration if available
+        if (hasTimeBasedDuration) {
+          const parts = [];
+          if (duration.rounds) {
+            parts.push(`${duration.rounds} ${duration.rounds === 1 ? 'Round' : 'Rounds'}`);
+          }
+          if (duration.turns) {
+            parts.push(`${duration.turns} ${duration.turns === 1 ? 'Turn' : 'Turns'}`);
+          }
+          durationText += `\nor after ${parts.join(' or ')}`;
+        }
+      } else if (hasTimeBasedDuration) {
+        // Only time-based duration
+        const parts = [];
+        if (duration.rounds) {
+          parts.push(`${duration.rounds} ${duration.rounds === 1 ? 'Round' : 'Rounds'}`);
+        }
+        if (duration.turns) {
+          parts.push(`${duration.turns} ${duration.turns === 1 ? 'Turn' : 'Turns'}`);
+        }
+        durationText = `Expires after ${parts.join(' or ')}`;
+      } else if (duration.type === "permanent") {
+        durationText = "Duration: Permanent";
+      } else {
+        durationText = "Duration: -";
+      }
+      
+      durationEl.textContent = durationText;
+
+      const descEl = document.createElement("div");
+      descEl.classList.add("tooltip-description", "inspect-statblock");
+      
+      // Get effect description or list changes
+      let description = effect.description || "";
+      if (!description) {
+        const changes = effect.changes.map(c => {
+          const mode = {
+            0: "Custom",
+            1: "Multiply",
+            2: "Add",
+            3: "Downgrade",
+            4: "Upgrade",
+            5: "Override"
+          }[c.mode] || c.mode;
+          return `• ${mode} ${c.value} to ${c.key}`;
+        }).join('\\n');
+        description = changes || "No description available.";
+      }
+      
+      const enrichedDescription = await TextEditor.enrichHTML(description, {
+        secrets: false,
+        entities: true,
+        async: true
+      });
+      descEl.innerHTML = enrichedDescription;
+
+      contentDiv.appendChild(nameEl);
+      contentDiv.appendChild(durationEl);
+      contentDiv.appendChild(descEl);
+      tooltip.appendChild(icon);
+      tooltip.appendChild(contentDiv);
+
+      document.body.appendChild(tooltip);
+      tooltip.style.left = `${e.pageX + 10}px`;
+      tooltip.style.top = `${e.pageY + 10}px`;
+
+      tag._customTooltip = tooltip;
+
+      function onMouseMove(evt) {
+        if (!tooltip._pinned) {
+          tooltip.style.left = `${evt.pageX + 10}px`;
+          tooltip.style.top = `${evt.pageY + 10}px`;
+        }
+      }
+
+      function onTagMouseLeave() {
+        if (!tooltip._pinned) {
+          cleanupTooltip();
+        }
+      }
+
+      function onTagMiddleClick(evt) {
+        if (evt.button === 1) {
+          evt.preventDefault();
+          if (!tooltip._pinned) {
+            tooltip._pinned = true;
+            tooltip.style.left = `${evt.pageX + 10}px`;
+            tooltip.style.top = `${evt.pageY + 10}px`;
+            tag.removeEventListener("mousemove", onMouseMove);
+            tag.removeEventListener("mouseleave", onTagMouseLeave);
+            tooltip.addEventListener("mousedown", onTooltipMiddleClick);
+            tooltip.addEventListener("mousedown", onDragStart);
+          }
+        }
+      }
+
+      function onTooltipMiddleClick(evt) {
+        if (evt.button === 1) {
+          evt.preventDefault();
+          cleanupTooltip();
+        }
+      }
+
+      function onDragStart(evt) {
+        if (evt.button !== 0) return;
+        evt.preventDefault();
+        const startX = evt.clientX;
+        const startY = evt.clientY;
+        const origLeft = parseInt(tooltip.style.left, 10);
+        const origTop = parseInt(tooltip.style.top, 10);
+        function onDragMove(e) {
+          tooltip.style.left = `${origLeft + e.clientX - startX}px`;
+          tooltip.style.top = `${origTop + e.clientY - startY}px`;
+        }
+        function onDragEnd(e) {
+          window.removeEventListener("mousemove", onDragMove);
+          window.removeEventListener("mouseup", onDragEnd);
+        }
+        window.addEventListener("mousemove", onDragMove);
+        window.addEventListener("mouseup", onDragEnd);
+      }
+
+      function cleanupTooltip() {
+        tag.removeEventListener("mousemove", onMouseMove);
+        tag.removeEventListener("mouseleave", onTagMouseLeave);
+        tag.removeEventListener("mousedown", onTagMiddleClick);
+        tooltip.removeEventListener("mousedown", onTooltipMiddleClick);
+        tooltip.removeEventListener("mousedown", onDragStart);
+        tooltip.remove();
+        tag._customTooltip = null;
+      }
+
+      tag.addEventListener("mousemove", onMouseMove);
+      tag.addEventListener("mouseleave", onTagMouseLeave);
+      tag.addEventListener("mousedown", onTagMiddleClick);
+    });
+
+    tag.addEventListener("mouseleave", () => {
+      if (tag._customTooltip && !tag._customTooltip._pinned) {
+        tag._customTooltip.remove();
+        tag._customTooltip = null;
       }
     });
   });

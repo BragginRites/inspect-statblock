@@ -11,7 +11,7 @@ Pressing Alt+I closes all open windows.
 ## Features
 
 1. **Multiple Windows**: Each actor gets its own statblock window.
-2. **Alt+I**: Close all open statblock windows.
+2. **I or Alt+I**: Close all open statblock windows (keybindings can be changed in the module settings).
 3. **Player Character Support**: Shows level and class information for PCs (including multiclass).
 4. **Remember Window Position**: Saved per actor.
 5. **Dark Theme**, draggable windows
@@ -20,8 +20,16 @@ Pressing Alt+I closes all open windows.
 
 ## Installation
 
-1. Copy the `inspect-statblock` folder into your Foundry VTT `modules` directory.
-2. Enable the module in your Foundry game.
+Through the Foundry VTT Module Directory:
+1. Search for the module from the [Foundry VTT Module Directory](https://foundryvtt.com/packages/inspect-statblock/)
+2. Click the **Install** button.
+
+Or 
+
+Through the GitHub Repository:
+1. Copy the module url from the 'https://github.com/BragginRites/inspect-statblock/releases/latest/download/module.json'
+2. Paste the url into the **Install Module** field in the **Add-on Modules** section of the **Add-on Modules** tab.
+3. Click **Install**
 
 ## Usage
 
