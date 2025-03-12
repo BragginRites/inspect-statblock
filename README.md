@@ -1,5 +1,4 @@
 # Inspect Statblock
-*For dnd5e*
 
 ![image](https://github.com/user-attachments/assets/46e4c6bd-c967-4c21-91e1-df7280dae570)
 
