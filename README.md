@@ -1,6 +1,10 @@
 # Inspect Statblock
 *For dnd5e*
 
+Coffee helps me stay up to 2am to write these modules.
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bragginrites)
+
+
 ![image](https://github.com/user-attachments/assets/46e4c6bd-c967-4c21-91e1-df7280dae570)
 
 If you're sick of telling your players the stats of a creature that they would look up anyway, this module is for you.
