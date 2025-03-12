@@ -1,4 +1,6 @@
-/* Basic floating window styling */
+/*******************************
+ * Base Window Styling
+ *******************************/
 .floating-window.inspect-statblock {
     position: fixed;
     z-index: 100;
@@ -7,16 +9,60 @@
     border-radius: 8px;
     color: #ddd;
     font-family: "Helvetica Neue", Arial, sans-serif;
-    min-width: 400px;
-    min-height: 200px;
     width: 400px;
-    height: auto;
-    max-height: 1000px;
-    resize: both;
-    overflow: auto;
+    height: 80vh;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-/* Header section */
+.floating-window.inspect-statblock .floating-content {
+    padding: 6px;
+    overflow: auto;
+    height: auto; /* Let content determine height */
+}
+
+/*******************************
+ * Title Bar
+ *******************************/
+.floating-window.inspect-statblock .floating-title-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #222;
+    border-bottom: 1px solid #444;
+    padding: 6px;
+    cursor: move;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+  
+.floating-window.inspect-statblock .floating-title {
+    font-weight: bold;
+}
+  
+.floating-window.inspect-statblock .floating-close {
+    color: #ddd;
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+.floating-window.inspect-statblock .floating-button {
+    background: #444;
+    color: #ddd;
+    border: 1px solid #666;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0.3em 0.6em;
+    margin-top: 1em;
+}
+
+.floating-window.inspect-statblock .floating-button:hover {
+    background: #555;
+}
+
+/*******************************
+ * Creature Header
+ *******************************/
 .floating-window.inspect-statblock .creature-header {
     text-align: center;
     padding: 10px;
@@ -36,7 +82,18 @@
     font-weight: normal;
 }
 
-/* Token and AC section */
+.floating-window.inspect-statblock .creature-header h1.open-portrait {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.floating-window.inspect-statblock .creature-header h1.open-portrait:hover {
+    color: #ffd700;
+}
+
+/*******************************
+ * Token and AC Section
+ *******************************/
 .floating-window.inspect-statblock .token-section {
     position: relative;
     display: flex;
@@ -85,6 +142,9 @@
     text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
 }
 
+/*******************************
+ * Movement Speeds
+ *******************************/
 .floating-window.inspect-statblock .movement-speeds {
     display: flex;
     flex-wrap: wrap;
@@ -118,7 +178,9 @@
     text-align: right;
 }
 
-/* Health section */
+/*******************************
+ * Health Section
+ *******************************/
 .floating-window.inspect-statblock .health-section {
     display: flex;
     justify-content: center;
@@ -148,7 +210,9 @@
     color: #5c9dd1;
 }
 
-/* Ability scores section */
+/*******************************
+ * Ability Scores
+ *******************************/
 .floating-window.inspect-statblock .ability-scores {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -179,7 +243,9 @@
     color: #aaa;
 }
 
-/* Defenses grid section */
+/*******************************
+ * Defenses Grid
+ *******************************/
 .floating-window.inspect-statblock .defenses-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -209,110 +275,66 @@
     word-wrap: break-word;
 }
 
-/* When the window has a custom size */
-.floating-window.inspect-statblock.custom-size {
-    height: var(--window-height);
-    width: var(--window-width);
-}
-  
-.floating-window.inspect-statblock .resizer {
-    width: 10px;
-    height: 10px;
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    cursor: se-resize;
-    background: #444;
-    border-top: 1px solid #222;
-    border-left: 1px solid #222;
-}  
-  
-/* Title bar styling */
-.floating-window.inspect-statblock .floating-title-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #222;
-    border-bottom: 1px solid #444;
-    padding: 6px;
-    cursor: move;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-}
-  
-.floating-window.inspect-statblock .floating-title {
-    font-weight: bold;
-}
-  
-.floating-window.inspect-statblock .floating-close {
-    color: #ddd;
-    cursor: pointer;
-    margin-left: 8px;
-}
-  
-.floating-window.inspect-statblock .floating-side-button {
-    cursor: pointer;
-    margin-right: 8px;
-}
-  
-/* Content area automatically fits its content */
-.floating-window.inspect-statblock .floating-content {
-    padding: 6px;
-    overflow: auto;
-    height: auto; /* Let content determine height */
-}
-  
-/* Buttons */
-.floating-window.inspect-statblock .floating-button {
-    background: #444;
-    color: #ddd;
-    border: 1px solid #666;
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 0.3em 0.6em;
-    margin-top: 1em;
-}
-
-.floating-window.inspect-statblock .floating-button:hover {
-    background: #555;
-}
-  
-/* Statblock details styling */
-.floating-window.inspect-statblock .creature-info .info-section {
-    background-color: #2a2a2a;
-    border: 1px solid #444;
+/*******************************
+ * Active Effects
+ *******************************/
+.floating-window.inspect-statblock .active-effects {
+    padding: 10px;
+    margin: 10px;
+    background: #2a2a2a;
     border-radius: 5px;
-    padding: 1em;
-    margin-bottom: 1em;
 }
-  
-.floating-window.inspect-statblock .ability-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 0.5em;
+
+.floating-window.inspect-statblock .active-effects .section-title {
+    text-align: center;
+    color: #f0ad4e;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.floating-window.inspect-statblock .effects-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.floating-window.inspect-statblock .effect-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #444;
+    font-size: 0.9em;
+}
+
+.floating-window.inspect-statblock .effect-tag img {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+}
+
+.floating-window.inspect-statblock .effect-tag span {
     color: #ddd;
 }
 
-.floating-window.inspect-statblock .ability-table thead tr {
-    background-color: #333;
+.floating-window.inspect-statblock .effect-duration {
+    color: #aaa;
+    font-size: 0.8em;
+    margin-left: 4px;
 }
 
-.floating-window.inspect-statblock .ability-table tbody tr:nth-child(even) {
-    background-color: #2a2a2a;
+.floating-window.inspect-statblock .no-effects {
+    color: #888;
+    font-style: italic;
+    padding: 4px 0;
 }
 
-.floating-window.inspect-statblock .ability-table tbody tr:nth-child(odd) {
-    background-color: #242424;
-}
-
-.floating-window.inspect-statblock .ability-table th,
-.floating-window.inspect-statblock .ability-table td {
-    padding: 0.5em;
-    border: 1px solid #444;
-    text-align: center;
-}
-  
-/* Passive features styling */
+/*******************************
+ * Passive Features
+ *******************************/
 .floating-window.inspect-statblock .info-section {
     background: #2a2a2a;
     margin: 10px;
@@ -372,7 +394,43 @@
     text-align: left;
 }
 
-/* Custom tooltip styling */
+/*******************************
+ * Portrait Window
+ *******************************/
+.floating-window.inspect-statblock.portrait-window {
+    width: fit-content;
+    min-width: 300px;
+    height: 80vh;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.floating-window.inspect-statblock .portrait-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+}
+
+.floating-window.inspect-statblock .portrait-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.floating-window.inspect-statblock .portrait-content {
+    padding: 0;
+    height: calc(100% - 30px); /* Account for title bar */
+    display: flex;
+    box-sizing: border-box;
+}
+
+/*******************************
+ * Custom Tooltips
+ *******************************/
 .custom-tooltip.inspect-statblock {
     position: fixed;
     z-index: 101;
@@ -424,12 +482,27 @@
     margin: 2px 0 6px;
     font-style: italic;
 }
+.inspect-statblock .tooltip-content a {
+    text-decoration: underline !important;
+  }
+  
+.inspect-statblock .tooltip-content .roll-link-group a,
+.inspect-statblock .tooltip-content .roll-link a,
+.inspect-statblock .tooltip-content .reference-link a {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+}
 
-/* Override Foundry's default window styling */
+
+/*******************************
+ * Foundry Window Overrides
+ *******************************/
 .inspect-statblock .dark-app-window.app.window-app {
     background: none !important;
     border: none !important;
 }
+
 .inspect-statblock .dark-app-window .window-header {
     background: #222 !important;
     color: #ddd !important;
@@ -438,10 +511,12 @@
     border-top-right-radius: 8px !important;
     padding: 6px !important;
 }
+
 .inspect-statblock .dark-app-window .window-header .close {
     color: #ddd !important;
     background: none !important;
 }
+
 .inspect-statblock .dark-app-window .window-content {
     background: #222 !important;
     border: 1px solid #444 !important;
@@ -449,60 +524,5 @@
     border-bottom-right-radius: 8px !important;
     color: #ddd !important;
     padding: 0 !important;
-}
-
-/* Active Effects section */
-.floating-window.inspect-statblock .active-effects {
-    padding: 10px;
-    margin: 10px;
-    background: #2a2a2a;
-    border-radius: 5px;
-}
-
-.floating-window.inspect-statblock .active-effects .section-title {
-    text-align: center;
-    color: #f0ad4e;
-    font-weight: bold;
-    margin-bottom: 8px;
-}
-
-.floating-window.inspect-statblock .effects-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-}
-
-.floating-window.inspect-statblock .effect-tag {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: rgba(0, 0, 0, 0.2);
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid #444;
-    font-size: 0.9em;
-}
-
-.floating-window.inspect-statblock .effect-tag img {
-    width: 20px;
-    height: 20px;
-    border-radius: 3px;
-}
-
-.floating-window.inspect-statblock .effect-tag span {
-    color: #ddd;
-}
-
-.floating-window.inspect-statblock .effect-duration {
-    color: #aaa;
-    font-size: 0.8em;
-    margin-left: 4px;
-}
-
-.floating-window.inspect-statblock .no-effects {
-    color: #888;
-    font-style: italic;
-    padding: 4px 0;
 }
   

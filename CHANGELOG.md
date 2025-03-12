@@ -1,3 +1,22 @@
+## [0.3.0] - 2025-03-13
+
+### Added
+#### Portrait Window
+- Added a portrait popout to the statblock when you click on the creature
+- Added toggle button to portrait window to manually switch sides
+- Portrait window appears to the left of the statblock when clicking the creature name
+- Closing the statblock will also close the portrait window
+
+### Improved
+#### Statblock Window
+- Statblock window now defaults to appearing on the right side of the screen near the chat tab rather than the center of screen
+- Pressing the keybind while targeting an actor whose statblock is already open will now close that statblock
+- Removed resizer from the statblock window. It wasn't fitting my aesthetic
+
+#### Tooltips
+- Fixed tooltip enrichers to properly handle inline rolls, links, and other Foundry content
+- Underlined them to make them more readable like a clickable link
+
 ## [0.2.0] - 2025-03-12
 
 ### Added
