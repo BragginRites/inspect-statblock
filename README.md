@@ -1,8 +1,7 @@
 # Inspect Statblock
 *For dnd5e*
 
-![image](https://github.com/user-attachments/assets/74868523-6365-4caf-8e0c-f75901587ac1)
-
+![image](https://github.com/user-attachments/assets/46e4c6bd-c967-4c21-91e1-df7280dae570)
 
 If you're sick of telling your players the stats of a creature that they would look up anyway, this module is for you.
 This module displays a creature's statblock in a custom floating window with real-time updates. Passive features display item sheet tooltips on hover. Users can open multiple statblocks, persisting on screen between scenes.
