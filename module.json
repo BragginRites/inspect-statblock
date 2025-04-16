@@ -32,7 +32,7 @@
     ],
     "url": "https://github.com/BragginRites/inspect-statblock",
     "manifest": "https://github.com/BragginRites/inspect-statblock/releases/download/0.3.0/module.json",
-    "download": "https://github.com/BragginRites/inspect-statblock/releases/download/0.3.0/module.zip",
+    "download": "https://github.com/BragginRites/inspect-statblock/releases/download/0.3.0/inspect-statblock.zip",
     "license": "MIT",
     "readme": "README.md",
     "bugs": "https://github.com/BragginRites/inspect-statblock/issues"

@@ -1,3 +1,9 @@
+## [0.3.1] - 2025-04-16
+
+### Fixed
+#### Path to module download
+- Fixed the path to the module download in the module.json file
+
 ## [0.3.0] - 2025-03-13
 
 ### Added
