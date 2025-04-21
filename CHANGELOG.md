@@ -1,3 +1,8 @@
+## [0.3.2] - 2025-04-21
+
+### Changed
+- changed system requirmenet to dnd5e 4.0.0 or higher
+
 ## [0.3.1] - 2025-04-16
 
 ### Fixed
