@@ -13,7 +13,7 @@ Coffee helps me stay up to 2am to write these modules. Thank you for supporting 
 Check out my other module(s):
 
 - [BG3 Inspired HUD](https://github.com/BragginRites/bg3-inspired-hotbar)
-- -[Surge Dice - A Narrative Dice Pool](https://github.com/BragginRites/surge-dice)
+- [Surge Dice - A Narrative Dice Pool](https://github.com/BragginRites/surge-dice)
 
 ## Quick Usage
 
