@@ -1,3 +1,9 @@
+## [0.4.2] - 2025-05-16
+
+### Changed
+- Updated DnD5e system minimum version to `3.3.1`.
+- Removed maximum Foundry VTT version compatibility for testing purposes.
+
 ## [0.4.1] - 2025-05-16
 
 ### Fixed
