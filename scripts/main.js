@@ -153,7 +153,35 @@ const setupTooltipBehavior = (triggerEl, tooltip, initialEvent) => {
 // Foundry Initialization
 // -------------------------
 
+const SECTIONS_FOR_DEFAULT_VISIBILITY = {
+  'name': { name: "Name", keyPattern: "header-name", type: "single" },
+  'crlevel': { name: "CR/Level", keyPattern: "header-crlevel", type: "single" },
+  'type': { name: "Creature Type", keyPattern: "header-type", type: "single" },
+  'ac': { name: "Armor Class", keyPattern: "section-ac", type: "single" },
+  'movement': { name: "Movement Speeds", keyPattern: "section-movement", type: "single" },
+  'hp': { name: "Health Points", keyPattern: "section-hp", type: "single" },
+  'abilities': { name: "Ability Scores", keyPattern: "ability-", type: "group" },
+  'effects': { name: "Active Effects", keyPattern: "effect-", type: "group" },
+  'features': { name: "Passive Features", keyPattern: "feature-", type: "group" },
+  'resistances': { name: "Damage Resistances", keyPattern: "res-", type: "group", actorPath: "system.traits.dr.value" },
+  'immunities': { name: "Damage Immunities", keyPattern: "imm-", type: "group", actorPath: "system.traits.di.value" },
+  'vulnerabilities': { name: "Damage Vulnerabilities", keyPattern: "vuln-", type: "group", actorPath: "system.traits.dv.value" },
+  'condimmunities': { name: "Condition Immunities", keyPattern: "condimm-", type: "group", actorPath: "system.traits.ci.value" }
+};
+
 Hooks.once('init', () => {
+  // Register settings for default visibility of sections
+  for (const [sectionId, config] of Object.entries(SECTIONS_FOR_DEFAULT_VISIBILITY)) {
+    game.settings.register("inspect-statblock", `defaultShowSection-${sectionId}`, {
+      name: `Default to SHOW ${config.name}`,
+      hint: `If checked, the ${config.name} section/elements will be shown by default for players on new tokens. Otherwise, they default to hidden.`,
+      scope: "world",
+      config: true,
+      type: Boolean,
+      default: false // Default is to HIDE sections unless this is checked
+    });
+  }
+
   game.settings.register("inspect-statblock", "allowPlayerInspection", {
     name: "Allow Player Characters to be Inspected",
     hint: "If disabled, the statblock viewer will not open for player characters.",
@@ -165,14 +193,6 @@ Hooks.once('init', () => {
   game.settings.register("inspect-statblock", "hideSpecialDurations", {
     name: "Hide Special Duration Conditions",
     hint: "If enabled, special duration conditions will not be shown in effect tooltips.",
-    scope: "world",
-    config: true,
-    type: Boolean,
-    default: false
-  });
-  game.settings.register("inspect-statblock", "hideHPInfo", {
-    name: "Hide HP Information",
-    hint: "If enabled, HP and temporary HP info will not be shown in the statblock.",
     scope: "world",
     config: true,
     type: Boolean,
@@ -261,9 +281,18 @@ const closeAllStatblockWindows = () => {
 };
 
 const rerenderStatblock = actor => {
-  const oldWin = document.getElementById(`statblock-window-${actor.id}`);
+  const freshActor = game.actors.get(actor.id);
+  if (!freshActor) {
+    console.warn(`Inspect Statblock | rerenderStatblock: Could not find actor with ID ${actor.id}`);
+    const oldWin = document.getElementById(`statblock-window-${actor.id}`);
+    if (oldWin) oldWin.remove();
+    delete openStatblocks[actor.id];
+    return;
+  }
+  const oldWin = document.getElementById(`statblock-window-${freshActor.id}`);
   if (oldWin) oldWin.remove();
-  createStatblockWindow(actor, actor.token ?? game.user.targets.first());
+  const tokenForWindow = freshActor.token ?? actor.token ?? game.user.targets.first();
+  createStatblockWindow(freshActor, tokenForWindow);
 };
 
 const openStatblockViewer = async () => {
@@ -301,49 +330,168 @@ const openStatblockViewer = async () => {
 
 const createStatblockWindow = async (actor, token) => {
   openStatblocks[actor.id] = true;
+  const isGM = game.user.isGM;
+
+  // Use the authoritative actor from game.actors for initial flag read
+  const currentActorInstance = game.actors.get(actor.id);
+  console.log("Inspect Statblock | currentActorInstance:", currentActorInstance); // DEBUG
+  if (!currentActorInstance) {
+      // console.warn(`Inspect Statblock | Could not find actor with ID ${actor.id} when trying to create window.`);
+      // Attempt to remove any orphaned window reference
+      const existingWindow = document.getElementById(`statblock-window-${actor.id}`);
+      if(existingWindow) existingWindow.remove();
+      delete openStatblocks[actor.id];
+      return; // Cannot proceed
+  }
+
+  let hiddenElements = currentActorInstance.getFlag("inspect-statblock", "hiddenElements");
+  const gmShouldInitializeDefaults = (hiddenElements === undefined);
+
+  if (isGM) {
+    if (gmShouldInitializeDefaults) {
+      const initialHiddenElements = {};
+      for (const [sectionId, config] of Object.entries(SECTIONS_FOR_DEFAULT_VISIBILITY)) {
+        const defaultShowThisSection = game.settings.get("inspect-statblock", `defaultShowSection-${sectionId}`);
+        const hideThisSection = !defaultShowThisSection;
+        if (config.type === "single") {
+          initialHiddenElements[config.keyPattern] = hideThisSection;
+        } else if (config.type === "group" && hideThisSection) {
+          switch (sectionId) {
+            case 'abilities': Object.keys(actor.system.abilities || {}).forEach(key => initialHiddenElements[`${config.keyPattern}${key}`] = true); break;
+            case 'effects': (actor.effects || []).forEach(effect => initialHiddenElements[`${config.keyPattern}${effect.id}`] = true); break;
+            case 'features': (actor.items || []).filter(i => i.type === "feat" && !i.system.activation?.type).forEach(item => initialHiddenElements[`${config.keyPattern}${item.id}`] = true); break;
+            case 'resistances': case 'immunities': case 'vulnerabilities': case 'condimmunities':
+              (getProperty(actor, config.actorPath) || []).forEach(item => {
+                const sanitizedItem = String(item).toLowerCase().replace(/[^a-z0-9_\\-]+/g, '-').replace(/-$/, '').replace(/^-/, '');
+                initialHiddenElements[`${config.keyPattern}${sanitizedItem}`] = true;
+              }); break;
+          }
+        }
+      }
+      // Use currentActorInstance for setFlag
+      await currentActorInstance.setFlag("inspect-statblock", "hiddenElements", initialHiddenElements);
+      hiddenElements = initialHiddenElements; 
+    }
+  } else { 
+    if (hiddenElements === undefined) { 
+      const defaultPlayerViewHiddenElements = {};
+      for (const [sectionId, config] of Object.entries(SECTIONS_FOR_DEFAULT_VISIBILITY)) {
+        const defaultShowThisSection = game.settings.get("inspect-statblock", `defaultShowSection-${sectionId}`);
+        const hideThisSection = !defaultShowThisSection;
+        if (config.type === "single") {
+          defaultPlayerViewHiddenElements[config.keyPattern] = hideThisSection;
+        } else if (config.type === "group" && hideThisSection) {
+          switch (sectionId) {
+            case 'abilities': Object.keys(actor.system.abilities || {}).forEach(key => defaultPlayerViewHiddenElements[`${config.keyPattern}${key}`] = true); break;
+            case 'effects': (actor.effects || []).forEach(effect => defaultPlayerViewHiddenElements[`${config.keyPattern}${effect.id}`] = true); break;
+            case 'features': (actor.items || []).filter(i => i.type === "feat" && !i.system.activation?.type).forEach(item => defaultPlayerViewHiddenElements[`${config.keyPattern}${item.id}`] = true); break;
+            case 'resistances': case 'immunities': case 'vulnerabilities': case 'condimmunities':
+              (getProperty(actor, config.actorPath) || []).forEach(item => {
+                const sanitizedItem = String(item).toLowerCase().replace(/[^a-z0-9_\\-]+/g, '-').replace(/-$/, '').replace(/^-/, '');
+                defaultPlayerViewHiddenElements[`${config.keyPattern}${sanitizedItem}`] = true;
+              }); break;
+          }
+        }
+      }
+      hiddenElements = defaultPlayerViewHiddenElements;
+    }
+  }
+
+  if (typeof hiddenElements !== 'object' || hiddenElements === null) {
+    hiddenElements = {};
+  }
+  console.log("Inspect Statblock | hiddenElements before rendering effects:", JSON.parse(JSON.stringify(hiddenElements))); // DEBUG
+
+  // Use original 'actor' for system data, as currentActorInstance might be a fresh pull without prototype chain if actor is synthetic etc.
+  // Flag operations in handlers already use game.actors.get().
   const { abilities, attributes, traits, details } = actor.system;
-  const armorClass = attributes?.ac?.value ?? "Unknown";
-  let levelOrCR, typeOrClass;
+  const armorClassValue = attributes?.ac?.value ?? "Unknown";
+  
+  // Original Level/CR and Type/Class determination
+  let originalLevelOrCR, originalTypeOrClass;
   if (actor.type === "character") {
     const classes = actor.items.filter(i => i.type === "class");
     if (classes.length) {
       const sortedClasses = classes.sort((a, b) => (b.system.levels || 0) - (a.system.levels || 0));
-      typeOrClass = sortedClasses.map(c => `${c.name} ${c.system.levels}`).join('/');
+      originalTypeOrClass = sortedClasses.map(c => `${c.name} ${c.system.levels}`).join('/');
       const totalLevel = sortedClasses.reduce((sum, c) => sum + (c.system.levels || 0), 0);
-      levelOrCR = `Level ${totalLevel} - `;
+      originalLevelOrCR = `Level ${totalLevel} - `;
     } else {
       const level = actor.system.details?.level ?? actor.system.attributes?.level ?? "?";
-      levelOrCR = `Level ${level}`;
-      typeOrClass = "Character";
+      originalLevelOrCR = `Level ${level}`;
+      originalTypeOrClass = "Character";
     }
   } else {
     const cr = details?.cr ?? "?";
     const formattedCR = cr === 0.25 ? "1/4" : cr === 0.125 ? "1/8" : cr === 0.5 ? "1/2" : cr;
-    levelOrCR = `CR ${formattedCR}`;
-    typeOrClass = details?.type?.value ? details.type.value[0].toUpperCase() + details.type.value.slice(1) : "Unknown";
+    originalLevelOrCR = `CR ${formattedCR}`;
+    originalTypeOrClass = details?.type?.value ? details.type.value[0].toUpperCase() + details.type.value.slice(1) : "Unknown";
   }
 
   const sizeMapping = { tiny: "Tiny", sm: "Small", med: "Medium", lg: "Large", huge: "Huge", grg: "Gargantuan" };
   const creatureSize = traits?.size ? (sizeMapping[traits.size.toLowerCase()] ?? "Unknown") : "Unknown";
   const capitalize = s => s.charAt(0).toUpperCase() + s.slice(1);
-  const damageResistances = Array.from(traits?.dr?.value ?? []).map(capitalize).join(', ') || 'None';
-  const damageImmunities = Array.from(traits?.di?.value ?? []).map(capitalize).join(', ') || 'None';
-  const damageVulnerabilities = Array.from(traits?.dv?.value ?? []).map(capitalize).join(', ') || 'None';
-  const conditionImmunities = Array.from(traits?.ci?.value ?? []).map(capitalize).join(', ') || 'None';
+
+  // Helper function to generate HTML for lists with toggleable items
+  const generateToggleableListHTML = (itemsArray, baseKeyPrefix, hiddenElements, isGM) => {
+    if (!itemsArray || itemsArray.length === 0) {
+        return isGM ? 'None' : '???';
+    }
+
+    return itemsArray.map(item => {
+        const capitalizedItem = capitalize(item);
+        // Sanitize item for key: lowercase, replace non-alphanum with dash.
+        const sanitizedItem = String(item).toLowerCase().replace(/[^a-z0-9_\\-]+/g, '-').replace(/-$/, '').replace(/^-/, '');
+        const elementKey = `${baseKeyPrefix}-${sanitizedItem}`;
+        const isHidden = hiddenElements[elementKey];
+
+        let displayedText = capitalizedItem;
+        let spanClasses = "is-toggleable-visibility individual-trait-item";
+
+        if (isHidden) {
+            if (isGM) {
+                spanClasses += ' element-hidden-to-players';
+            } else {
+                displayedText = "???";
+            }
+        }
+        return `<span class="${spanClasses}" data-element-key="${elementKey}">${displayedText}</span>`;
+    }).join(', ');
+  };
+
+  const damageResistancesHTML = generateToggleableListHTML(Array.from(traits?.dr?.value ?? []), 'res', hiddenElements, game.user.isGM);
+  const damageImmunitiesHTML = generateToggleableListHTML(Array.from(traits?.di?.value ?? []), 'imm', hiddenElements, game.user.isGM);
+  const damageVulnerabilitiesHTML = generateToggleableListHTML(Array.from(traits?.dv?.value ?? []), 'vuln', hiddenElements, game.user.isGM);
+  const conditionImmunitiesHTML = generateToggleableListHTML(Array.from(traits?.ci?.value ?? []), 'condimm', hiddenElements, game.user.isGM);
 
   const passiveFeatures = actor.items.filter(i => i.type === "feat" && !i.system.activation?.type);
   const passiveHTML = passiveFeatures.length ? `
     <div class="info-section">
       <p>Passive Features</p>
       <ul class="passive-features">
-        ${passiveFeatures.map(item => `
-          <li>
+        ${passiveFeatures.map(item => {
+          const elementKey = `feature-${item.id}`;
+          const isHidden = hiddenElements[elementKey];
+          let featureName = item.name;
+          let liClass = "is-toggleable-visibility";
+          let iconHTML = `<img src="${item.img}" class="passive-feature-icon" alt="${item.name}">`;
+
+          if (isHidden) {
+            if (game.user.isGM) {
+              liClass += ' element-hidden-to-players';
+            } else {
+              featureName = "???";
+              iconHTML = "";
+            }
+          }
+          return `
+          <li class="${liClass}" data-element-key="${elementKey}">
             <a class="passive-feature-link" data-uuid="${item.uuid}">
-              <img src="${item.img}" class="passive-feature-icon" alt="${item.name}">
-              <span class="passive-feature-name">${item.name}</span>
+              ${iconHTML}
+              <span class="passive-feature-name">${featureName}</span>
             </a>
           </li>
-        `).join('')}
+        `;}).join('')}
       </ul>
     </div>` : "";
 
@@ -354,106 +502,317 @@ const createStatblockWindow = async (actor, token) => {
   // Title Bar and Close Handler
   const titleBar = document.createElement("div");
   titleBar.classList.add("floating-title-bar", "inspect-statblock");
-  titleBar.innerHTML = `<div style="display: flex; justify-content: flex-end; width: 100%;">
-      <span class="floating-close">✕</span>
-    </div>`;
+  
+  let titleBarControls = '<div class="title-bar-buttons">';
+  if (game.user.isGM) {
+    titleBarControls += '<a class="statblock-visibility-control" title="Hide All Elements" data-action="hide-all"><i class="fas fa-eye-slash"></i></a>';
+    titleBarControls += '<a class="statblock-visibility-control" title="Show All Elements" data-action="show-all"><i class="fas fa-eye"></i></a>';
+  }
+  titleBarControls += '</div><span class="floating-close">✕</span>';
+  titleBar.innerHTML = titleBarControls;
+
   statblockDiv.appendChild(titleBar);
 
   // Content Area
   const contentArea = document.createElement("div");
   contentArea.classList.add("floating-content", "inspect-statblock");
+
+  // AC Section
+  const acElementKey = "section-ac";
+  const acIsHidden = hiddenElements[acElementKey];
+  let acSpecificWrapperClass = "ac-display-wrapper is-toggleable-visibility";
+  let displayedAcValue = armorClassValue;
+  if (acIsHidden) {
+    if (isGM) {
+      acSpecificWrapperClass += ' element-hidden-to-players';
+    } else {
+      displayedAcValue = "??";
+    }
+  }
+
+  // Movement Speed Section
+  const movementElementKey = "section-movement";
+  const movementIsHidden = hiddenElements[movementElementKey];
+  let movementClass = "movement-speeds is-toggleable-visibility";
+  let movementContent = "";
+
+  // Always build the structure, but change content if hidden for player
+  movementContent = Object.entries(attributes.movement)
+    .filter(([type, data]) => {
+      const speed = typeof data === 'object' ? data.value : data;
+      return speed && speed > 0; // Keep rendering the structure even if speed is 0 for potential icons
+    })
+    .map(([type, data]) => {
+      let speed = typeof data === 'object' ? data.value : data;
+      const icon = type === 'walk' ? 'fa-solid fa-person-walking' :
+                   type === 'fly' ? 'fa-solid fa-dove' :
+                   type === 'swim' ? 'fa-solid fa-person-swimming' :
+                   type === 'climb' ? 'fa-solid fa-person-hiking' :
+                   type === 'burrow' ? 'fa-solid fa-worm' : '';
+      
+      if (movementIsHidden && !game.user.isGM) {
+        speed = "??";
+      }
+      if (!speed && (movementIsHidden && !game.user.isGM)) speed = "??"; // if speed was 0, still show ?? for player
+      else if (!speed) speed = "0"; // Show 0 if not hidden and speed is 0
+
+      return `<div class="speed-tag" title="${type[0].toUpperCase() + type.slice(1)}">
+                <i class="${icon}"></i>
+                <span>${speed}</span>
+              </div>`;
+    }).join('');
+  
+  if (!movementContent && movementIsHidden && !game.user.isGM) { // If no speeds at all, and hidden for player
+      movementContent = `<span class="hidden-placeholder">???</span>`;
+  }
+
+  if (movementIsHidden && game.user.isGM) {
+    movementClass += ' element-hidden-to-players';
+  }
+
+  // Health Section
+  const healthElementKey = "section-hp";
+  const healthIsHiddenByFlag = hiddenElements[healthElementKey];
+  let healthClass = "health-section is-toggleable-visibility";
+  let healthContent = "";
+
+  if (healthIsHiddenByFlag) {
+    if (game.user.isGM) {
+      healthClass += ' element-hidden-to-players';
+      // GM still sees normal values, but with style
+      healthContent = `
+        <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">
+          ${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}
+        </div>
+        ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
+      `;
+    }
+  }
+
+  // Header elements - Name
+  const nameElementKey = "header-name";
+  const nameIsHidden = hiddenElements[nameElementKey];
+  let displayedName = actor.name;
+  let nameH1Class = "open-portrait is-toggleable-visibility";
+  if (nameIsHidden) {
+    if (isGM) {
+      nameH1Class += ' element-hidden-to-players';
+    } else {
+      displayedName = "???";
+    }
+  }
+
+  // Header elements - CR/Level
+  const crLevelElementKey = "header-crlevel";
+  const crLevelIsHidden = hiddenElements[crLevelElementKey];
+  let displayedCrLevelText = originalLevelOrCR.trim();
+  let crLevelSpanClass = "is-toggleable-visibility header-crlevel-span";
+  if (crLevelIsHidden) {
+    if (isGM) {
+      crLevelSpanClass += ' element-hidden-to-players';
+    } else {
+      displayedCrLevelText = "CR ??"; 
+    }
+  }
+
+  // Header elements - Type/Class
+  const typeElementKey = "header-type";
+  const typeIsHidden = hiddenElements[typeElementKey];
+  let displayedTypeText = originalTypeOrClass;
+  let typeSpanClass = "is-toggleable-visibility header-type-span";
+  if (typeIsHidden) {
+    if (isGM) {
+      typeSpanClass += ' element-hidden-to-players';
+    } else {
+      displayedTypeText = "???";
+    }
+  }
+  
+  let h2CrLevelSpan = ``;
+  if (originalLevelOrCR.trim()) {
+      h2CrLevelSpan = `<span class="${crLevelSpanClass}" data-element-key="${crLevelElementKey}">${displayedCrLevelText}</span>`;
+  }
+
+  let h2TypeSpan = ``;
+  if (originalTypeOrClass) {
+      h2TypeSpan = `<span class="${typeSpanClass}" data-element-key="${typeElementKey}">${displayedTypeText}</span>`;
+  }
+
+  let h2Content = "";
+  if ((crLevelIsHidden && !isGM) && (typeIsHidden && !isGM)) {
+    h2Content = `<span class="is-toggleable-visibility" data-element-key="${crLevelElementKey}">???</span>`;
+  } else {
+    let finalCrLevelPart = (originalLevelOrCR.trim()) ? h2CrLevelSpan : "";
+    let finalTypePart = (originalTypeOrClass) ? h2TypeSpan : "";
+
+    if (finalCrLevelPart && finalTypePart) {
+      h2Content = `${finalCrLevelPart} ${finalTypePart}`;
+    } else if (finalCrLevelPart) {
+      h2Content = finalCrLevelPart;
+    } else if (finalTypePart) {
+      h2Content = finalTypePart;
+    } else {
+      h2Content = `<span class="is-toggleable-visibility" data-element-key="${nameElementKey}"> </span>`;
+    }
+  }
+
   contentArea.innerHTML = `
     <div class="creature-info">
       <div class="creature-header">
-        <h1 class="open-portrait" data-actor-id="${actor.id}">${actor.name}</h1>
-        <h2>${levelOrCR} ${typeOrClass}</h2>
+        <h1 class="${nameH1Class}" data-actor-id="${actor.id}" data-element-key="${nameElementKey}">${displayedName}</h1>
+        <h2>${h2Content}</h2>
       </div>
       <div class="token-section">
         <img src="${token?.document?.texture?.src || token?.texture?.src}" class="token-image" alt="${actor.name}">
-        <div class="ac-section">
-          <div class="ac-shield">
-            <i class="fa-solid fa-shield"></i>
-            <span class="ac-value">${armorClass}</span>
+        <div class="ac-and-movement-container">
+          <div class="${acSpecificWrapperClass}" data-element-key="${acElementKey}">
+            <div class="ac-shield">
+              <i class="fa-solid fa-shield"></i>
+              <span class="ac-value">${displayedAcValue}</span>
+            </div>
           </div>
-          <div class="movement-speeds">
-            ${Object.entries(attributes.movement)
-              .filter(([type, data]) => {
-                const speed = typeof data === 'object' ? data.value : data;
-                return speed && speed > 0;
-              })
-              .map(([type, data]) => {
-                const speed = typeof data === 'object' ? data.value : data;
-                const icon = type === 'walk' ? 'fa-solid fa-person-walking' :
-                             type === 'fly' ? 'fa-solid fa-dove' :
-                             type === 'swim' ? 'fa-solid fa-person-swimming' :
-                             type === 'climb' ? 'fa-solid fa-person-hiking' :
-                             type === 'burrow' ? 'fa-solid fa-worm' : '';
-                return `<div class="speed-tag" title="${type[0].toUpperCase() + type.slice(1)}">
-                          <i class="${icon}"></i>
-                          <span>${speed}</span>
-                        </div>`;
-              }).join('')}
+          <div class="${movementClass}" data-element-key="${movementElementKey}">
+            ${movementContent}
           </div>
         </div>
       </div>
-      <div class="health-section">
-        ${(() => {
-          const hideHP = game.settings.get("inspect-statblock", "hideHPInfo");
-          if (hideHP) return '<div class="current-health hidden">HP Hidden</div>';
-          return `
-            <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">
-              ${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}
-            </div>
-            ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
-          `;
-        })()}
+      <div class="${healthClass}" data-element-key="${healthElementKey}">
+        ${healthContent}
       </div>
       <div class="ability-scores">
-        ${Object.entries(abilities).map(([key, val]) => `
-          <div class="ability">
-            <div class="ability-name">${key.toUpperCase()}</div>
-            <div class="ability-value">${val.value}</div>
-            <div class="ability-mod">${val.mod >= 0 ? '+' : ''}${val.mod}</div>
+        ${Object.entries(abilities).map(([key, val]) => {
+          const elementKey = `ability-${key}`;
+          const isHidden = hiddenElements[elementKey];
+          let abilityName = key.toUpperCase();
+          let abilityValue = val.value;
+          let abilityMod = `${val.mod >= 0 ? '+' : ''}${val.mod}`;
+          let divClass = "ability is-toggleable-visibility";
+
+          if (isHidden) {
+            if (game.user.isGM) {
+              divClass += ' element-hidden-to-players';
+            } else {
+              abilityValue = "??";
+              abilityMod = "?";
+            }
+          }
+          return `
+          <div class="${divClass}" data-element-key="${elementKey}">
+            <div class="ability-name">${abilityName}</div>
+            <div class="ability-value">${abilityValue}</div>
+            <div class="ability-mod">${abilityMod}</div>
           </div>
-        `).join('')}
+        `;}).join('')}
       </div>
       <div class="active-effects">
         <div class="section-title">Active Effects</div>
         <div class="effects-grid">
-          ${actor.effects.filter(e => !e.disabled).map(effect => `
-            <div class="effect-tag" title="${effect.name}" data-effect-id="${effect.id}">
-              <img src="${effect.icon}" alt="${effect.name}">
-              <span>${effect.name}</span>
-              ${(() => {
+          ${(() => { // Wrap in IIFE to allow logging
+            console.log("Inspect Statblock | actor.effects (parameter) before map:", actor?.effects ? JSON.parse(JSON.stringify(actor.effects)) : "undefined or null"); // DEBUG
+            console.log("Inspect Statblock | currentActorInstance.effects before map:", currentActorInstance?.effects ? JSON.parse(JSON.stringify(currentActorInstance.effects)) : "undefined or null"); // DEBUG
+            
+            let effectsSourceToUse = actor.effects;
+            // Fallback if actor.effects is empty, and we have a token
+            if ((!effectsSourceToUse || effectsSourceToUse.size === 0) && token && token.actor) {
+                console.warn("Inspect Statblock | actor.effects (parameter) is empty. Attempting fallback to token.actor.effects for this render.");
+                const tokenActorInstance = canvas.tokens.get(token.id)?.actor; // Get actor directly from the token on canvas
+                if (tokenActorInstance && tokenActorInstance.effects && tokenActorInstance.effects.size > 0) {
+                    effectsSourceToUse = tokenActorInstance.effects;
+                    console.log("Inspect Statblock | Using token.actor.effects as fallback:", JSON.parse(JSON.stringify(effectsSourceToUse)));
+                } else {
+                    console.warn("Inspect Statblock | Fallback to token.actor.effects also empty or token actor not found.");
+                }
+            }
+
+            console.log("Inspect Statblock | Chosen effectsSource for rendering:", effectsSourceToUse ? JSON.parse(JSON.stringify(effectsSourceToUse)) : "undefined or null"); // DEBUG
+
+            const effectsToRender = (effectsSourceToUse || []).filter(e => !e.disabled);
+            console.log("Inspect Statblock | effectsToRender (after filter):", JSON.parse(JSON.stringify(effectsToRender))); // DEBUG
+
+            // Item 2: Ensure new effects get a default visibility based on settings
+            let flagsWereUpdatedByNewEffectDefaults = false;
+            if (effectsSourceToUse) { // Only proceed if we have effects
+                const defaultShowEffects = game.settings.get("inspect-statblock", "defaultShowSection-effects");
+                (effectsSourceToUse || []).forEach(effect => {
+                    const elementKey = `effect-${effect.id}`;
+                    if (hiddenElements[elementKey] === undefined) { // If no flag exists for this effect
+                        console.log(`Inspect Statblock | No flag for effect ${effect.name} (${elementKey}). Applying default: ${defaultShowEffects ? 'SHOW' : 'HIDE'}.`);
+                        hiddenElements[elementKey] = !defaultShowEffects; // true if default is HIDE, false if default is SHOW
+                        flagsWereUpdatedByNewEffectDefaults = true;
+                    }
+                });
+            }
+            // Persist if GM and flags were changed by applying defaults to new effects
+            if (isGM && flagsWereUpdatedByNewEffectDefaults) {
+                console.log("Inspect Statblock | Saving updated hiddenElements after applying defaults to new effects.");
+                currentActorInstance.setFlag("inspect-statblock", "hiddenElements", hiddenElements).catch(err => console.error("Error saving flags for new effect defaults:", err));
+            }
+
+            if (effectsToRender.length === 0) return '<div class="no-effects">No Active Effects</div>'; // Explicitly return if no effects
+
+            return effectsToRender.map(effect => {
+              console.log("Inspect Statblock | Processing effect in map:", JSON.parse(JSON.stringify(effect))); // DEBUG
+              const elementKey = `effect-${effect.id}`;
+              const isHidden = hiddenElements[elementKey];
+              let effectName = effect.name;
+              let divClass = "effect-tag is-toggleable-visibility";
+              let durationHTML = "";
+              let titleAttributeText = effect.name; // Default to full name
+              let imageHTML = `<img src="${effect.img}" alt="${effect.name}">`; // Default to showing image
+
+              if (isHidden) {
+                if (game.user.isGM) {
+                  divClass += ' element-hidden-to-players';
+                  // GM still sees normal duration if applicable and full title
+                   const { rounds, turns } = effect.duration;
+                  if (rounds || turns) {
+                    const parts = [];
+                    if (rounds) parts.push(`${rounds} ${rounds === 1 ? 'Round' : 'Rounds'}`);
+                    if (turns) parts.push(`${turns} ${turns === 1 ? 'Turn' : 'Turns'}`);
+                    durationHTML = `<div class="effect-duration">${parts.join(', ')}</div>`;
+                  }
+                } else {
+                  effectName = "???";
+                  titleAttributeText = ""; // No title for hidden effects for players
+                  imageHTML = ""; // No image for hidden effects for players
+                  // No duration shown for players if hidden
+                }
+              } else {
+                // Normal duration rendering if not hidden
                 const { rounds, turns } = effect.duration;
                 if (rounds || turns) {
                   const parts = [];
                   if (rounds) parts.push(`${rounds} ${rounds === 1 ? 'Round' : 'Rounds'}`);
                   if (turns) parts.push(`${turns} ${turns === 1 ? 'Turn' : 'Turns'}`);
-                  return `<div class="effect-duration">${parts.join(', ')}</div>`;
+                  durationHTML = `<div class="effect-duration">${parts.join(', ')}</div>`;
                 }
-                return '';
-              })()}
-            </div>
-          `).join('') || '<div class="no-effects">No Active Effects</div>'}
+              }
+              return `
+              <div class="${divClass}" title="${titleAttributeText}" data-element-key="${elementKey}" data-effect-id="${effect.id}">
+                ${imageHTML}
+                <span>${effectName}</span>
+                ${durationHTML}
+              </div>
+            `;}).join('') /* Removed fallback here as it's handled inside IIFE */
+          })()}
         </div>
       </div>
       <div class="defenses-grid">
         <div class="defense">
           <div class="defense-name">Resistances</div>
-          <div class="defense-value">${damageResistances}</div>
+          <div class="defense-value">${damageResistancesHTML}</div>
         </div>
         <div class="defense">
           <div class="defense-name">Immunities</div>
-          <div class="defense-value">${damageImmunities}</div>
+          <div class="defense-value">${damageImmunitiesHTML}</div>
         </div>
         <div class="defense">
           <div class="defense-name">Vulnerabilities</div>
-          <div class="defense-value">${damageVulnerabilities}</div>
+          <div class="defense-value">${damageVulnerabilitiesHTML}</div>
         </div>
         <div class="defense">
           <div class="defense-name">Condition Imm.</div>
-          <div class="defense-value">${conditionImmunities}</div>
+          <div class="defense-value">${conditionImmunitiesHTML}</div>
         </div>
       </div>
     </div>
@@ -495,8 +854,8 @@ const createStatblockWindow = async (actor, token) => {
     delete openStatblocks[actor.id];
   });
 
-  attachPassiveFeatureTooltips(contentArea);
-  attachEffectTooltips(contentArea);
+  attachPassiveFeatureTooltips(contentArea, hiddenElements, isGM);
+  attachEffectTooltips(contentArea, hiddenElements, isGM);
 
   contentArea.querySelector('.open-portrait').addEventListener('click', () => {
     const existingPortrait = document.getElementById(`portrait-window-${actor.id}`);
@@ -506,6 +865,120 @@ const createStatblockWindow = async (actor, token) => {
       createPortraitWindow(actor, statblockDiv);
     }
   });
+
+  // Added: Right-click listener for toggling visibility - GM ONLY
+  if (game.user.isGM) {
+    contentArea.addEventListener('contextmenu', async (event) => {
+      const targetElement = event.target.closest('.is-toggleable-visibility');
+      if (!targetElement) return;
+
+      event.preventDefault();
+
+      // Check for and remove any active custom tooltip on child elements before DOM manipulation
+      const passiveFeatureLinkWithTooltip = targetElement.querySelector('.passive-feature-link');
+      if (passiveFeatureLinkWithTooltip && passiveFeatureLinkWithTooltip._customTooltip) {
+        passiveFeatureLinkWithTooltip._customTooltip.remove();
+        passiveFeatureLinkWithTooltip._customTooltip = null;
+      }
+      // Potentially add checks for other types of tooltips if they can be on targetElement directly
+      if (targetElement._customTooltip) { // e.g. if effect tags themselves get tooltips directly on them
+          targetElement._customTooltip.remove();
+          targetElement._customTooltip = null;
+      }
+
+      const elementKey = targetElement.dataset.elementKey;
+      if (!elementKey) return;
+
+      const currentActor = game.actors.get(actor.id); // Get fresh actor instance
+      if (!currentActor) return;
+
+      const currentHiddenElements = currentActor.getFlag("inspect-statblock", "hiddenElements") || {};
+      const newHiddenState = !currentHiddenElements[elementKey];
+      const updatedHiddenElements = { ...currentHiddenElements, [elementKey]: newHiddenState };
+
+      await currentActor.setFlag("inspect-statblock", "hiddenElements", updatedHiddenElements);
+      targetElement.classList.toggle("element-hidden-to-players", newHiddenState);
+    });
+
+    // Event delegation for Show/Hide All buttons on the titleBar
+    titleBar.addEventListener('click', async (event) => {
+      const target = event.target.closest('.statblock-visibility-control');
+      if (!target) return;
+
+      const currentActor = game.actors.get(actor.id); // Get fresh actor instance
+      if (!currentActor) return;
+
+      const action = target.dataset.action;
+      let hiddenFlags = currentActor.getFlag("inspect-statblock", "hiddenElements") || {};
+
+      if (action === 'hide-all') {
+        const newFlags = { ...hiddenFlags }; // Operate on a new object
+        contentArea.querySelectorAll('.is-toggleable-visibility').forEach(el => {
+          const key = el.dataset.elementKey;
+          if (key) {
+            newFlags[key] = true;
+            el.classList.add('element-hidden-to-players');
+          }
+        });
+        await currentActor.setFlag("inspect-statblock", "hiddenElements", newFlags);
+      } else if (action === 'show-all') {
+        contentArea.querySelectorAll('.is-toggleable-visibility').forEach(el => {
+          el.classList.remove('element-hidden-to-players');
+        });
+
+        const flagsToShowAll = {};
+        console.log("Inspect Statblock | [Show All] currentActor.effects before building flags:", currentActor?.effects ? JSON.parse(JSON.stringify(currentActor.effects)) : "undefined or null"); // DEBUG
+        // Iterate through all defined sections and their potential elements, setting them to false (visible)
+        for (const [sectionId, config] of Object.entries(SECTIONS_FOR_DEFAULT_VISIBILITY)) {
+          if (config.type === "single") {
+            flagsToShowAll[config.keyPattern] = false;
+          } else if (config.type === "group") {
+            switch (sectionId) {
+              case 'abilities':
+                Object.keys(currentActor.system.abilities || {}).forEach(key => {
+                  flagsToShowAll[`${config.keyPattern}${key}`] = false;
+                });
+                break;
+              case 'effects':
+                let effectsForShowAll = currentActor.effects;
+                if (!effectsForShowAll || effectsForShowAll.size === 0) {
+                  console.warn("Inspect Statblock | [Show All] currentActor.effects is empty. Trying actor param.");
+                  effectsForShowAll = actor.effects; // actor is from createStatblockWindow scope
+                }
+                if ((!effectsForShowAll || effectsForShowAll.size === 0) && token && token.actor) {
+                  console.warn("Inspect Statblock | [Show All] actor.effects (param) also empty. Trying token.actor.effects.");
+                  const tokenActorInstance = canvas.tokens.get(token.id)?.actor;
+                  if (tokenActorInstance && tokenActorInstance.effects && tokenActorInstance.effects.size > 0) {
+                    effectsForShowAll = tokenActorInstance.effects;
+                  }
+                }
+                console.log("Inspect Statblock | [Show All] effectsForShowAll chosen:", effectsForShowAll ? JSON.parse(JSON.stringify(effectsForShowAll)) : "undefined/null");
+                (effectsForShowAll || []).forEach(effect => {
+                  flagsToShowAll[`${config.keyPattern}${effect.id}`] = false;
+                });
+                break;
+              case 'features':
+                (currentActor.items || []).filter(i => i.type === "feat" && !i.system.activation?.type).forEach(item => {
+                  flagsToShowAll[`${config.keyPattern}${item.id}`] = false;
+                });
+                break;
+              case 'resistances':
+              case 'immunities':
+              case 'vulnerabilities':
+              case 'condimmunities':
+                (getProperty(currentActor, config.actorPath) || []).forEach(item => {
+                  const sanitizedItem = String(item).toLowerCase().replace(/[^a-z0-9_\\-]+/g, '-').replace(/-$/, '').replace(/^-/, '');
+                  flagsToShowAll[`${config.keyPattern}${sanitizedItem}`] = false;
+                });
+                break;
+            }
+          }
+        }
+        console.log("Inspect Statblock | [Show All] flagsToShowAll before setFlag:", JSON.parse(JSON.stringify(flagsToShowAll))); // DEBUG
+        await currentActor.setFlag("inspect-statblock", "hiddenElements", flagsToShowAll); 
+      }
+    });
+  }
 };
 
 const makeElementDraggable = (el, handle, type, actorId) => {
@@ -542,9 +1015,19 @@ const makeElementDraggable = (el, handle, type, actorId) => {
   window.addEventListener("mouseup", () => { isDragging = false; });
 };
 
-const attachPassiveFeatureTooltips = container => {
+const attachPassiveFeatureTooltips = (container, hiddenElements, isGM) => {
   container.querySelectorAll(".passive-feature-link").forEach(link => {
     const uuid = link.getAttribute("data-uuid");
+    
+    // Check if feature should be hidden for player before attaching tooltip logic
+    const listItem = link.closest('li.is-toggleable-visibility');
+    if (listItem) {
+        const elementKey = listItem.dataset.elementKey;
+        if (elementKey && hiddenElements && hiddenElements[elementKey] && !isGM) {
+            return; // Skip tooltip attachment for this hidden feature for players
+        }
+    }
+
     link.addEventListener("mouseenter", async e => {
       if (link._customTooltip) return;
       const item = await fromUuid(uuid);
@@ -567,8 +1050,13 @@ const attachPassiveFeatureTooltips = container => {
   });
 };
 
-const attachEffectTooltips = container => {
+const attachEffectTooltips = (container, hiddenElements, isGM) => {
   container.querySelectorAll(".effect-tag").forEach(tag => {
+    const elementKey = tag.dataset.elementKey;
+    if (!isGM && hiddenElements && hiddenElements[elementKey]) {
+      return; // Skip tooltip attachment for this hidden effect for players
+    }
+
     const effectId = tag.getAttribute("data-effect-id");
     const effect = tag.actor ? tag.actor.effects.get(effectId) : null;
     if (!effect) return;
@@ -662,7 +1150,7 @@ const attachEffectTooltips = container => {
       }
       const enrichedDescription = await enrichHTMLClean(effect.description || "", {});
       const tooltip = createCustomTooltip({
-        iconSrc: effect.icon,
+        iconSrc: effect.img,
         nameText: effect.name,
         descriptionHTML: enrichedDescription,
         durationText

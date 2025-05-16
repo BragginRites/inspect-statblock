@@ -1,3 +1,16 @@
+## [0.4.0] - 2025-05-16
+
+### Added
+#### Element Visibility Controls (GM Feature)
+- **Individual Toggling**: GMs can now right-click most elements within a statblock (like ability scores, HP, AC, passive features, active effects, defenses, etc.) to toggle their visibility for players.
+- **Visual Indicators for GM**: When an element is hidden from players, GMs will see it with a distinct purple dashed border and reduced opacity.
+- **Player View of Hidden Elements**: Players will see "???" in place of any information the GM has chosen to hide.
+- **"Show All" / "Hide All" Buttons**: Quick controls have been added to the statblock title bar for GMs to reveal or hide all toggleable elements at once.
+- **Default Visibility Settings**: New module settings allow GMs to define the default visibility (shown or hidden) for major sections of the statblock when it's first opened for an actor or when new elements (like new active effects) appear.
+
+### Removed
+- Removed the global "Hide HP Information" setting, as HP visibility is now controllable per-actor via the new right-click toggle and default section visibility settings.
+
 ## [0.3.2] - 2025-04-21
 
 ### Changed

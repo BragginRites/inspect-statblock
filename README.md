@@ -33,6 +33,7 @@ Check out my other module(s):
   - Hover over passive features to see item tooltips.  
     - Middle-click a tooltip to pin it.
     - Middle-click a pinned tooltip to unpin it.
+  - **GM Feature**: Right-click on statblock elements (like ability scores, HP, defenses, etc.) to toggle their visibility for players.
   - Press **Alt+I** to close all open statblock windows.
 
 ## Features

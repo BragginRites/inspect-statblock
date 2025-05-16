@@ -35,7 +35,24 @@
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
 }
-  
+
+.floating-window.inspect-statblock .title-bar-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.floating-window.inspect-statblock .statblock-visibility-control {
+    color: #ddd;
+    cursor: pointer;
+    font-size: 0.9em;
+    padding: 2px 4px;
+}
+
+.floating-window.inspect-statblock .statblock-visibility-control:hover {
+    color: #fff;
+}
+
 .floating-window.inspect-statblock .floating-title {
     font-weight: bold;
 }
@@ -110,11 +127,17 @@
     object-fit: cover;
 }
 
-.floating-window.inspect-statblock .ac-section {
+.floating-window.inspect-statblock .ac-and-movement-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+}
+
+.floating-window.inspect-statblock .ac-display-wrapper {
+    /* display: flex; /* If needed for inner alignment, but ac-shield already handles its content */
+    /* align-items: center; */
+    /* justify-content: center; */
 }
 
 .floating-window.inspect-statblock .ac-shield {
@@ -524,5 +547,20 @@
     border-bottom-right-radius: 8px !important;
     color: #ddd !important;
     padding: 0 !important;
+}
+
+.clickable[data-action="roll"] {
+    cursor: pointer;
+}
+
+/* Add this new class */
+.element-hidden-to-players {
+    border: 2px dashed purple !important;
+    opacity: 0.5 !important; /* Or adjust contrast as preferred */
+}
+
+/* Ensure children also get some visual indication if needed, or adjust as necessary */
+.element-hidden-to-players > * {
+    /* opacity: 0.7; /* Example: if you want children to be slightly more visible than the parent */
 }
   

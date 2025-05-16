@@ -1,0 +1,40 @@
+- [X] Feature: Core Statblock Visibility Toggle
+  - [X] GM can right-click elements to toggle visibility.
+  - [X] Hidden elements get a purple dashed border and reduced opacity (GM view).
+  - [X] Player view shows "???" for hidden elements.
+  - [X] State is persisted via actor flags (`inspect-statblock.hiddenElements`).
+  - [X] Only GMs can toggle visibility.
+- [X] Implemented Toggleable Sections:
+  - [X] Ability Scores (individual)
+  - [X] Active Effects (individual)
+  - [X] Passive Features (individual)
+    - [X] Icon hidden for players if feature is hidden.
+    - [X] Tooltip disabled for players if feature is hidden.
+  - [X] Armor Class (section)
+  - [X] Movement Speeds (section - icons remain, value becomes "??")
+  - [X] Health Points (section - respects global "Hide HP Info" setting)
+  - [X] Creature Name (header)
+  - [X] Creature CR/Level (header, individual span)
+  - [X] Creature Type (header, individual span)
+  - [X] Defense Lists (Resistances, Immunities, Vulnerabilities, Condition Immunities - individual items within lists)
+    - [X] "None" in defense lists appears as "??" for players if the list is empty and would show "None".
+- [X] Feature: Title Bar Controls (GM Only)
+  - [X] "Hide All Elements" button (`fas fa-eye-slash`)
+    - [X] Sets all known toggleable elements' flags to `true`.
+    - [X] Updates GM view immediately.
+  - [X] "Show All Elements" button (`fas fa-eye`)
+    - [X] Sets `hiddenElements` flag to `{}` (empty object).
+    - [X] Updates GM view immediately.
+- [X] Feature: Module Settings for Default Visibility
+  - [X] Settings registered for each major section (defaulting to "hide by default" for players).
+  - [X] GM's first view of an actor initializes actor flags based on these module defaults (using fresh actor instance for flag ops).
+  - [X] Player's view of an actor (if GM hasn't set flags yet) dynamically uses module defaults for rendering (no flag write).
+- [ ] **Current Issues / Bugs to Address:**
+  - [ ] **Issue 1 (Reset on Reopen)**: GM custom visibility settings (individual toggles, Show/Hide All) are reset to module defaults when the statblock window is closed and reopened for an actor that has been previously configured by the GM.
+  - [ ] **Issue 2 (Show All - Player View)**: Clicking "Show All" as GM does not update the player's view to show all elements. Player view remains as it was.
+  - [ ] **Issue 3 (Post "Show All" - GM Individual Hide - VERIFY IF RESOLVED)**: After GM clicks "Show All", then right-clicks a single element to hide it - verify if the previous behavior of "all elements immediately hide for GM" is resolved by the fresh actor instance fix in handlers.
+  - [ ] **Issue 4 (Consequence of Issue 3 - VERIFY IF RESOLVED)**: If GM then right-clicks an element again (after the "all hide" scenario from former Issue 3), it then shows that one for the player - verify if this behavior chain is resolved.
+
+- [ ] Future Enhancements (Optional - for later consideration):
+  - [ ] Consider live-update for player view via sockets when GM changes visibility (instead of waiting for actor update/re-render).
+  - [ ] Add styling for `.individual-trait-item` if more spacing around commas is desired. 
