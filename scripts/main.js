@@ -280,19 +280,25 @@ const closeAllStatblockWindows = () => {
   });
 };
 
-const rerenderStatblock = actor => {
-  const freshActor = game.actors.get(actor.id);
-  if (!freshActor) {
-    console.warn(`Inspect Statblock | rerenderStatblock: Could not find actor with ID ${actor.id}`);
-    const oldWin = document.getElementById(`statblock-window-${actor.id}`);
+const rerenderStatblock = actorFromHook => { 
+  // Keep freshActor check to ensure actor still exists and for token
+  const freshActorCheck = game.actors.get(actorFromHook.id); 
+  if (!freshActorCheck) {
+    console.warn(`Inspect Statblock | rerenderStatblock: Could not find actor with ID ${actorFromHook.id}`);
+    const oldWin = document.getElementById(`statblock-window-${actorFromHook.id}`);
     if (oldWin) oldWin.remove();
-    delete openStatblocks[actor.id];
+    delete openStatblocks[actorFromHook.id];
     return;
   }
-  const oldWin = document.getElementById(`statblock-window-${freshActor.id}`);
+
+  const oldWin = document.getElementById(`statblock-window-${actorFromHook.id}`);
   if (oldWin) oldWin.remove();
-  const tokenForWindow = freshActor.token ?? actor.token ?? game.user.targets.first();
-  createStatblockWindow(freshActor, tokenForWindow);
+
+  // Use actorFromHook for its data, freshActorCheck for token as a fallback source
+  const tokenForWindow = freshActorCheck.token ?? actorFromHook.token ?? game.user.targets.first(); 
+  
+  // Pass the actorFromHook (which has the latest update data) to createStatblockWindow
+  createStatblockWindow(actorFromHook, tokenForWindow); 
 };
 
 const openStatblockViewer = async () => {
@@ -400,11 +406,30 @@ const createStatblockWindow = async (actor, token) => {
   if (typeof hiddenElements !== 'object' || hiddenElements === null) {
     hiddenElements = {};
   }
-  console.log("Inspect Statblock | hiddenElements before rendering effects:", JSON.parse(JSON.stringify(hiddenElements))); // DEBUG
 
-  // Use original 'actor' for system data, as currentActorInstance might be a fresh pull without prototype chain if actor is synthetic etc.
-  // Flag operations in handlers already use game.actors.get().
-  const { abilities, attributes, traits, details } = actor.system;
+  // Determine the most reliable source for system data, especially dynamic values like HP
+  let systemDataSource = actor; // Default to the passed actor (actorFromHook on re-renders)
+  if (token && token.actor && token.actor.system) {
+    console.log("Inspect Statblock | Attempting to use token.actor.system as systemDataSource for dynamic values like HP.");
+    // Further check if token.actor's HP data seems more complete/current if actor's is default
+    // This is a heuristic: if main actor shows value=max and no temp, but token has different, token is likely more current.
+    if (actor.system.attributes.hp.value === actor.system.attributes.hp.max && 
+        actor.system.attributes.hp.temp === 0 && 
+        (token.actor.system.attributes.hp.value !== token.actor.system.attributes.hp.max || 
+         token.actor.system.attributes.hp.temp !== 0)) {
+      console.log("Inspect Statblock | Using token.actor.system as systemDataSource based on HP data heuristic.");
+      systemDataSource = token.actor;
+    } else if (!actor.system.attributes.hp.value) { // If main actor HP value is missing, prefer token
+        console.log("Inspect Statblock | Main actor HP value missing, preferring token.actor.system");
+        systemDataSource = token.actor;
+    } else {
+        console.log("Inspect Statblock | Sticking with passed actor.system as systemDataSource. Token HP not significantly different or main actor HP seems valid.");
+    }
+  } else {
+    console.log("Inspect Statblock | No token or token.actor.system available, using passed actor.system as systemDataSource.");
+  }
+
+  const { abilities, attributes, traits, details } = systemDataSource.system;
   const armorClassValue = attributes?.ac?.value ?? "Unknown";
   
   // Original Level/CR and Type/Class determination
@@ -579,14 +604,25 @@ const createStatblockWindow = async (actor, token) => {
   if (healthIsHiddenByFlag) {
     if (game.user.isGM) {
       healthClass += ' element-hidden-to-players';
-      // GM still sees normal values, but with style
       healthContent = `
         <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">
           ${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}
         </div>
         ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
       `;
+    } else { // Player, hidden by flag
+      healthContent = `
+        <div class="current-health">?? / ??</div>
+        ${attributes.hp.temp ? '<div class="temp-health">+??</div>' : ''} 
+      `;
     }
+  } else { // Not hidden by flag - should be visible to everyone
+    healthContent = `
+      <div class="current-health ${attributes.hp.tempmax > 0 ? 'increased-max' : attributes.hp.tempmax < 0 ? 'decreased-max' : ''}">
+        ${attributes.hp.value}/${attributes.hp.max + (attributes.hp.tempmax || 0)}
+      </div>
+      ${attributes.hp.temp ? `<div class="temp-health">+${attributes.hp.temp}</div>` : ''}
+    `;
   }
 
   // Header elements - Name

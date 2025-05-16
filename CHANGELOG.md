@@ -1,3 +1,8 @@
+## [0.4.1] - 2025-05-16
+
+### Fixed
+- **HP Display**: Corrected an issue where Health Points (current, temporary, and max HP modifiers) on the statblock might not update immediately or could revert to a base state after other interactions (like toggling visibility of elements or changes to active effects). The statblock now more reliably sources the latest HP data for display during re-renders.
+
 ## [0.4.0] - 2025-05-16
 
 ### Added
