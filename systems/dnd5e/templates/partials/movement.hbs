@@ -1,0 +1,21 @@
+<!-- templates/partials/core/movement.hbs -->
+{{!-- The wrapper <div class="movement-speeds"> in core_statblock_layout.hbs no longer handles overall visibility toggling for the section. --}}
+{{!-- Individual speed tags now handle their own visibility. --}}
+
+{{#if this.isEmpty}}
+    {{#if @root.isGM}} {{!-- Check isGM from the root context passed to the main template --}}
+        <span class="no-items">None</span>
+    {{else}}
+        {{!-- For players, if isEmpty is true (which it shouldn't be with the new logic as we always list speeds), 
+             this block might not be hit. If all values are "??", it will still render the tags below. 
+             If truly no speeds are in SIDS (which is not the plan), then show generic ?? --}}
+        <span class="player-hidden-content">??</span>
+    {{/if}}
+{{else}}
+    {{#each this.speeds}}
+    <div class="speed-tag is-toggleable-visibility {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" title="{{this.type}}" data-element-key="{{this.elementKey}}">
+        {{#if this.icon}}<i class="{{this.icon}}"></i>{{/if}}
+        <span>{{this.value}}</span>
+    </div>
+    {{/each}}
+{{/if}} 

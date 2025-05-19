@@ -1,0 +1,19 @@
+{{!-- This partial is wrapped by <div class="health-section"> in core_statblock_layout.hbs --}}
+{{!-- The wrapper handles isHiddenGM and data-element-key for the whole section. --}}
+{{!-- Individual HP values in SIDS are already '??' if player cannot see them. --}}
+
+{{#if this.current}}
+    <div class="current-health {{#if this.increasedMax}}increased-max{{/if}} {{#if this.decreasedMax}}decreased-max{{/if}}">
+        {{this.current}} / {{#if this.tempMax}}{{sum this.max this.tempMax}}{{else}}{{this.max}}{{/if}}
+    </div>
+{{/if}}
+
+{{#if (and this.temp (ne this.temp "0"))}} {{!-- Also show if temp is "??" --}}
+    <div class="temp-health">
+        +{{this.temp}}
+    </div>
+{{/if}}
+
+{{#if section.isHiddenGM}}
+    <span class="gm-hidden-indicator">HIDDEN</span>
+{{/if}} 

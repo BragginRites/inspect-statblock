@@ -1,0 +1,5 @@
+<!-- templates/partials/core/portrait.hbs -->
+{{!-- This partial is placed inside <div class="token-section"> in core_statblock_layout.hbs --}}
+{{#if this.displayImgSrc}}
+    <img src="{{this.displayImgSrc}}" alt="{{this.altText}}" class="token-image {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.elementKey}}">
+{{/if}} 

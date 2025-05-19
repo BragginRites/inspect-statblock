@@ -1,0 +1,12 @@
+<!-- templates/partials/core/ability_scores.hbs -->
+{{#if abilityScores.length}}
+<div class="ability-scores">
+    {{#each abilityScores}}
+    <div class="ability {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.elementKey}}">
+        <div class="ability-name">{{this.label}}</div>
+        <div class="ability-value">{{this.value}}</div>
+        <div class="ability-mod">{{this.mod}}</div>
+    </div>
+    {{/each}}
+</div>
+{{/if}} 

@@ -1,3 +1,6 @@
+## [1.0.0] - 2025-05-19
+Complete rewrite of the module to support multiple systems via a new System Adapter API.
+
 ## [0.4.2] - 2025-05-16
 
 ### Changed

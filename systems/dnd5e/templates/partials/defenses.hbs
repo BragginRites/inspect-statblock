@@ -1,0 +1,49 @@
+<div class="statblock-section defenses-grid-layout {{#if sectionData.isHiddenGM}}element-hidden-to-players{{/if}}" {{#if sectionData.elementKey}}data-element-key="{{sectionData.elementKey}}"{{/if}}>
+    {{#if sectionData.title}}
+        <div class="section-title">{{sectionData.title}}</div>
+    {{/if}}
+
+    {{#if sectionData.isEmpty}}
+        <div class="section-item-list empty-list-message">
+            {{#if sectionData.isHiddenGM}}
+                <span class="gm-hidden-indicator">HIDDEN</span>
+            {{/if}}
+            {{#if isGM}}None{{else}}??{{/if}}
+        </div>
+    {{else}}
+        {{#each sectionData.items}}
+            <div class="defense-category-item">
+                {{!-- Category NAME is toggle target, but does NOT get the hidden border itself --}}
+                <div class="defense-category-name" data-element-key="{{this.elementKey}}">{{this.name}}</div>
+                
+                {{#if this.tags.length}}
+                    <div class="defense-tags-container">
+                        {{#each this.tags}}
+                            {{!-- Each tag is now a SIDS.StatblockItem --}}
+                            <span class="defense-tag {{#if (and this.isHiddenGM (not this.isPlaceholder))}}element-hidden-to-players{{/if}} {{#if this.isPlaceholder}}placeholder-tag{{/if}}" 
+                                  {{#unless this.isPlaceholder}}data-element-key="{{this.elementKey}}"{{/unless}} 
+                                  title="{{this.name}}">
+                                {{this.name}}
+                            </span>
+                        {{/each}}
+                    </div>
+                {{!-- GM view and category SIDS item has subText (which means it's empty for GM) --}}
+                {{else if (and @root.isGM this.subText)}}
+                    <div class="no-items-in-category">{{this.subText}}</div> {{!-- subText contains "None" for GMs --}}
+                {{!-- Player view: If no tags and not a GM, and no subText (which means it wasn't set to "None" for GM) it implies an empty category for player. 
+                    The persistent placeholder logic in handler should cover most player "??" needs. 
+                    If individual tags are hidden, they will render as "??" from the SIDS data itself.
+                    This section's isEmpty should be true if no categories OR if all categories are effectively empty.
+                    Effectively empty for a player means all its tags are "??". --}}
+                {{else if (not @root.isGM)}}
+                     <div class="defense-tags-container">
+                        {{!-- If persistentSinglePlaceholder mode resulted in no tags AND no placeholder (e.g. category was truly empty initially), this will be empty. --}}
+                        {{!-- If individualPlaceholders mode resulted in no tags (truly empty), this is also empty. --}}
+                        {{!-- Consider if a generic "??" span should be here if tags are empty for player and no placeholder was added. --}}
+                        {{!-- For now, relying on handler to provide the placeholder if needed. --}}
+                    </div>
+                {{/if}}
+        </div>
+        {{/each}}
+    {{/if}}
+</div>

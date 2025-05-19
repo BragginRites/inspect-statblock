@@ -1,0 +1,27 @@
+<!-- templates/partials/core/header.hbs -->
+{{!-- This partial is wrapped by <div class="creature-header"> in core_statblock_layout.hbs --}}
+<h1 class="open-portrait is-toggleable-visibility {{#if this.nameIsHiddenGM}}element-hidden-to-players{{/if}}" data-actor-id="{{this.actorId}}" data-element-key="{{this.nameElementKey}}">
+    {{this.name}}
+</h1>
+<h2>
+    {{#if this.levelOrCrText}}
+        <span class="is-toggleable-visibility {{#if this.levelOrCrIsHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.levelOrCrElementKey}}">
+            {{this.levelOrCrText}}
+        </span>
+    {{/if}}
+    {{#if this.sizeText}}
+        <span class="is-toggleable-visibility {{#if this.sizeIsHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.sizeElementKey}}">
+            {{this.sizeText}}
+        </span>
+    {{/if}}
+    {{#if this.typeText}}
+        <span class="is-toggleable-visibility {{#if this.typeIsHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.typeElementKey}}">
+            {{this.typeText}}
+        </span>
+    {{/if}}
+    {{#unless (or this.levelOrCrText this.sizeText this.typeText)}}
+        {{!-- Render a non-breaking space if all are empty to maintain layout. 
+             The parent .creature-header handles overall visibility based on name usually. --}}
+        <span>&nbsp;</span>
+    {{/unless}}
+</h2> 

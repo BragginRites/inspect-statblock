@@ -1,0 +1,119 @@
+/* D&D 5e Specific Styles for Inspect Statblock */
+
+/* Health Section - Increased/Decreased Max HP Indicators */
+.inspect-statblock-app .current-health.increased-max {
+    color: #b388ff; /* Color for increased max HP */
+}
+.inspect-statblock-app .current-health.decreased-max {
+    color: #ffd700; /* Color for decreased max HP */
+}
+
+/* Ability Scores - D&D 5e 6-column layout and styling */
+.inspect-statblock-app .ability-scores {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr); /* 6 columns for D&D abilities */
+    gap: 4px;
+    padding: 10px;
+    text-align: center;
+    background: #2a2a2a;
+    margin: 10px 6px;
+    border-radius: 5px;
+}
+.inspect-statblock-app .ability-scores .ability {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.inspect-statblock-app .ability-scores .ability-name {
+    font-weight: bold;
+    color: #f0ad4e; /* D&D 5e specific color choice for ability names */
+    font-size: 0.9em;
+}
+.inspect-statblock-app .ability-scores .ability-value {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+.inspect-statblock-app .ability-scores .ability-mod {
+    color: #aaa;
+    font-size: 1em;
+}
+
+/* Defenses Section - D&D 5e specific structure and styling */
+.inspect-statblock-app .statblock-section.defenses-grid-layout {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    /* padding is handled by .statblock-section in core */
+}
+
+.inspect-statblock-app .statblock-section.defenses-grid-layout .section-title {
+    grid-column: 1 / -1; /* Ensure main "Defenses" title spans columns */
+    cursor: default !important; /* Make sure it's not styled as clickable */
+    text-align: center; /* Center the main "Defenses" title */
+}
+
+.inspect-statblock-app .defense-category-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* Space between category name and tags container */
+    /* No box styling here, it's a logical group */
+}
+
+/* Category Name Styling (shared for GM/Player, GM gets hover via more specific rule) */
+.inspect-statblock-app .defense-category-item .defense-category-name {
+    font-weight: bold;
+    color: #e6a23c; /* Specific color for defense category names */
+    font-size: 0.95em;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #444;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.inspect-statblock-app[data-user-is-gm="true"] .defense-category-item .defense-category-name {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.inspect-statblock-app[data-user-is-gm="true"] .defense-category-item .defense-category-name:hover {
+    color: #ffd700;
+}
+
+.inspect-statblock-app .defense-tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    /* padding-left: 10px; -- Removed as centering tags is preferred */
+    justify-content: center; /* Center tags */
+}
+
+.inspect-statblock-app .defense-tag {
+    background-color: #333;
+    color: #ccc;
+    padding: 3px 7px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    border: 1px solid #555;
+}
+
+/* GM hover for actual (non-placeholder) defense tags */
+.inspect-statblock-app[data-user-is-gm="true"] .defense-tag:not(.placeholder-tag) {
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+.inspect-statblock-app[data-user-is-gm="true"] .defense-tag:not(.placeholder-tag):hover {
+    background-color: #444;
+    border-color: #777;
+}
+
+/* Placeholder tag specific styling (e.g., non-interactive look) */
+.inspect-statblock-app .defense-tag.placeholder-tag {
+    cursor: default;
+    /* opacity: 0.8; */ /* Optional: make it look slightly different */
+}
+
+.inspect-statblock-app .defense-category-item .no-items-in-category {
+    color: #777;
+    font-style: italic;
+    font-size: 0.85em;
+    text-align: center;
+} 

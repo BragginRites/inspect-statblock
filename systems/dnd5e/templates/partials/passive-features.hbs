@@ -1,0 +1,29 @@
+<div class="statblock-section {{sectionClass}}">
+    {{#if sectionData.title}}
+        <div class="section-title" data-element-key="section-passive-features">{{sectionData.title}}</div>
+    {{/if}}
+
+    {{#if sectionData.isEmpty}}
+        <div class="section-item-list empty-list-message">
+            {{#if sectionData.isHiddenGM}}
+                <span class="gm-hidden-indicator">HIDDEN</span>
+            {{/if}}
+            {{#if isGM}}None{{else}}??{{/if}}
+        </div>
+    {{else}}
+        {{!-- List layout (e.g., passive features) --}}
+        <ul class="items-list">
+            {{#each sectionData.items}}
+            <li class="statblock-item {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" {{#if this.elementKey}}data-element-key="{{this.elementKey}}"{{/if}} title="{{this.nativeTooltipText}}" {{#if this.uuid}}data-uuid="{{this.uuid}}"{{/if}} {{#if this.descriptionHTML}}data-tooltip-content='{{{this.descriptionHTML}}}'{{/if}}>
+                {{#if this.icon}}
+                    <img src="{{this.icon}}" class="item-icon" alt="{{this.name}} icon"/>
+                {{/if}}
+                <span class="item-name">{{this.name}}</span>
+                {{#if this.subText}}
+                    <span class="item-subtext">{{this.subText}}</span>
+                {{/if}}
+            </li>
+            {{/each}}
+        </ul>
+    {{/if}}
+</div> 
