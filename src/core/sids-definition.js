@@ -6,6 +6,7 @@
 
 /**
  * @typedef {Object} SIDS.StandardizedStatblockData
+ * @property {string} [systemSpecificLayoutTemplate] - Path to system-specific layout template (e.g., "modules/my-module/systems/dnd5e/templates/layout.hbs").
  * @property {SIDS.HeaderInfo} headerInfo - Information for the top section.
  * @property {SIDS.PortraitInfo} portraitInfo - Token and actor image details.
  * @property {string} systemId - The system ID this data is for (e.g., 'dnd5e').

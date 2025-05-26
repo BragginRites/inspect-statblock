@@ -15,7 +15,28 @@ import { registerDnd5eSettings } from './dnd5e-settings.js';
 
 Hooks.once('init', () => {
   if (game.system.id === 'dnd5e') {
+      // Register the D&D 5e handler with the core system registry
+      if (globalThis.InspectStatblockCore && globalThis.InspectStatblockCore.registerSystemHandler) {
+          globalThis.InspectStatblockCore.registerSystemHandler('dnd5e', Dnd5eHandler);
+      } else {
+          console.warn(`InspectStatblock | D&D 5e handler attempting to register before Core API is ready. Retrying on 'ready'.`);
+          Hooks.once('ready', () => {
+               if (globalThis.InspectStatblockCore && globalThis.InspectStatblockCore.registerSystemHandler) {
+                  globalThis.InspectStatblockCore.registerSystemHandler('dnd5e', Dnd5eHandler);
+               } else {
+                  console.error(`InspectStatblock | D&D 5e handler could not register: InspectStatblockCore.registerSystemHandler not found even on ready.`);
+               }
+          });
+      }
+
+      // Register D&D 5e specific settings
+      if (typeof Dnd5eHandler.registerSystemSpecificSettings === 'function') {
+          Dnd5eHandler.registerSystemSpecificSettings();
+      }
+
+      // Register template paths
       const dnd5eTemplatePaths = [
+          'systems/dnd5e/templates/dnd5e-statblock-layout.hbs',  // Main layout template
           'systems/dnd5e/templates/partials/header.hbs',
           'systems/dnd5e/templates/partials/portrait.hbs',
           'systems/dnd5e/templates/partials/ac.hbs',
@@ -240,6 +261,7 @@ async function getStandardizedActorData(actor, token, hiddenElements, isGM) {
 
   // Placeholder for the SIDS object we will build
   const sidsData = {
+    systemSpecificLayoutTemplate: "modules/inspect-statblock/systems/dnd5e/templates/dnd5e-statblock-layout.hbs",
     headerInfo: {
       name: displayedName,
       nameElementKey: nameElementKey,
@@ -719,10 +741,28 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
     isHiddenGM: isGM && _shouldHideElement(sectionElementKey, hiddenElements, isGM)
   };
 
-  const passiveFeatureItems = (actor.items || []).filter(item => 
-    item.type === "feat" && 
-    (item.system.activation?.type === "" || !item.system.activation?.type)
-  );
+  const passiveFeatureItems = (actor.items || []).filter(item => {
+    if (item.type !== "feat") return false;
+    
+    // Check if this feature has any activities that require activation
+    // If it has no activities or all activities are passive, consider it a passive feature
+    if (item.system.activities && Object.keys(item.system.activities).length > 0) {
+      // Check if any activity requires activation (non-passive)
+      const hasActiveActivation = Object.values(item.system.activities).some(activity => 
+        activity.activation && activity.activation.type && activity.activation.type !== ""
+      );
+      return !hasActiveActivation; // Only include if no active activation found
+    }
+    
+    // Fallback for items without activities system or older D&D 5e versions
+    // Check the legacy activation property if activities don't exist
+    if (!item.system.activities && item.system.activation) {
+      return item.system.activation.type === "" || !item.system.activation.type;
+    }
+    
+    // If no activities and no legacy activation, assume it's passive
+    return true;
+  });
 
   if (passiveFeatureItems.length === 0) {
     return featuresSection; // isEmpty remains true
@@ -897,8 +937,102 @@ export const Dnd5eHandler = {
 
   getStandardizedActorData,
   getSystemSectionDefinitions,
+  
+  /**
+   * Registers D&D 5e specific settings.
+   */
   registerSystemSpecificSettings() {
     registerDnd5eSettings();
+  },
+
+  /**
+   * Gets the default ability keys for D&D 5e.
+   * @returns {Array<string>} Array of ability keys.
+   */
+  getDefaultAbilityKeys() {
+    return ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+  },
+
+  /**
+   * Gets all possible toggleable element keys for the given D&D 5e actor.
+   * @param {Actor} actor - The D&D 5e actor document.
+   * @param {SIDS.StandardizedStatblockData} [sidsData] - The SIDS data for optimization.
+   * @returns {Promise<Array<string>>} Array of all toggleable element keys.
+   */
+  async getAllToggleableKeys(actor, sidsData) {
+    const keys = new Set();
+    
+    if (!actor) return [];
+
+    const sectionDefs = this.getSystemSectionDefinitions();
+
+    // Add single-type section keys
+    for (const def of Object.values(sectionDefs)) {
+      if (def.type === 'single') {
+        keys.add(def.keyPattern);
+      } else if (def.type === 'group') {
+        if (def.keyPattern === 'ability-') {
+          this.getDefaultAbilityKeys().forEach(abilKey => keys.add(`ability-${abilKey}`));
+        }
+      }
+    }
+
+    // Add active effects
+    if (actor.effects) {
+      actor.effects.filter(e => !e.disabled).forEach(effect => keys.add(`effect-${effect.id}`));
+    }
+
+    // Add passive features
+    if (actor.items) {
+      actor.items.filter(item => item.type === "feat" && (item.system.activation?.type === "" || !item.system.activation?.type))
+        .forEach(item => keys.add(`feature-${item.id}`));
+    }
+
+    // Add defense tag keys from SIDS data if available
+    if (sidsData && sidsData.defenses && sidsData.defenses.items) {
+      sidsData.defenses.items.forEach(category => {
+        if (category.tags && category.tags.length > 0) {
+          category.tags.forEach(tag => keys.add(tag.elementKey));
+        }
+      });
+    }
+
+    return Array.from(keys);
+  },
+
+  /**
+   * Gets element keys for items within a specific section.
+   * @param {string} sectionHeaderKey - The section header key.
+   * @param {Actor} actor - The D&D 5e actor document.
+   * @returns {Promise<Array<string>>} Array of element keys for items in the section.
+   */
+  async getInSectionItemKeys(sectionHeaderKey, actor) {
+    const itemKeys = new Set();
+    
+    if (!actor) return [];
+
+    switch (sectionHeaderKey) {
+      case "section-active-effects":
+        if (actor.effects) {
+          actor.effects.filter(e => !e.disabled)
+            .forEach(effect => itemKeys.add(`effect-${effect.id}`));
+        }
+        break;
+        
+      case "section-passive-features":
+        if (actor.items) {
+          actor.items.filter(item => item.type === "feat" && 
+                            (item.system.activation?.type === "" || !item.system.activation?.type))
+            .forEach(item => itemKeys.add(`feature-${item.id}`));
+        }
+        break;
+        
+      default:
+        console.warn(`Dnd5eHandler | getInSectionItemKeys: Unhandled section ${sectionHeaderKey}`);
+        break;
+    }
+
+    return Array.from(itemKeys);
   },
 
   /**

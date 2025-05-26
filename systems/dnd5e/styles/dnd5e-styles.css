@@ -1,11 +1,125 @@
 /* D&D 5e Specific Styles for Inspect Statblock */
 
+/*******************************
+ * D&D 5e Token and AC Section
+ *******************************/
+.inspect-statblock-app .token-section {
+    position: relative;
+    display: flex;
+    justify-content: center; /* Horizontal centering of children */
+    align-items: center; /* Vertical centering of children */
+    padding: 10px;
+    gap: 20px; /* Space between token image and ac/movement */
+}
+
+.inspect-statblock-app .token-image {
+    width: 128px; /* D&D 5e specific size */
+    height: 128px;
+    border: 1px solid #333; /* Softer border */
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.inspect-statblock-app .ac-and-movement-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center AC shield and movement block */
+    gap: 8px; /* Space between AC and movement */
+}
+
+.inspect-statblock-app .ac-shield {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px; /* Size of the shield background */
+    height: 64px;
+}
+
+.inspect-statblock-app .ac-shield i.fa-shield { /* More specific selector */
+    font-size: 64px; /* Icon size */
+    color: #f0ad4e; /* Shield color */
+}
+
+.inspect-statblock-app .ac-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px; /* Slightly smaller for the 64px shield */
+    font-weight: bold;
+    color: #fff; /* Text color on shield */
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.7);
+}
+
+/*******************************
+ * D&D 5e Movement Speeds
+ *******************************/
+.inspect-statblock-app .movement-speeds {
+    display: flex;
+    flex-wrap: wrap; /* Allow speeds to wrap if many */
+    gap: 4px; /* Space between speed tags */
+    justify-content: center; /* Center tags if they don't fill width */
+    max-width: 120px; /* Max width for the movement block */
+    margin-top: 4px; /* Space above movement if AC is also present */
+}
+
+.inspect-statblock-app .speed-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px; /* Space between icon and text in a tag */
+    background: #2a2a2a; /* Tag background */
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    color: #ddd; /* Text color */
+    border: 1px solid #444; /* Tag border */
+}
+
+.inspect-statblock-app .speed-tag i { /* For FontAwesome icons */
+    font-size: 0.9em;
+    color: #f0ad4e; /* Icon color */
+    width: 14px; /* Fixed width for alignment */
+    text-align: center;
+}
+
+.inspect-statblock-app .speed-tag span { /* For the speed value */
+    min-width: 20px; /* Ensure some space for value */
+    text-align: right;
+}
+
+/*******************************
+ * D&D 5e Health Section
+ *******************************/
+.inspect-statblock-app .health-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px; /* Space between current/max and temp HP */
+    padding: 5px 10px;
+    margin-top: 5px; /* Space from section above */
+    border-top: 1px solid #383838;
+    border-bottom: 1px solid #383838;
+}
+
+.inspect-statblock-app .current-health {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #ddd;
+}
+
 /* Health Section - Increased/Decreased Max HP Indicators */
 .inspect-statblock-app .current-health.increased-max {
     color: #b388ff; /* Color for increased max HP */
 }
 .inspect-statblock-app .current-health.decreased-max {
     color: #ffd700; /* Color for decreased max HP */
+}
+
+.inspect-statblock-app .temp-health {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #5c9dd1; /* Color for temporary HP */
 }
 
 /* Ability Scores - D&D 5e 6-column layout and styling */

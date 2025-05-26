@@ -36,6 +36,7 @@
  * @param {Actor} actor - The actor document.
  * @param {TokenDocument | undefined} [token] - The linked token document, if any.
  * @param {object} hiddenElements - The current hiddenElements flag state for this actor.
+ * @param {boolean} isGM - Whether the current user is a Game Master.
  * @returns {Promise<SIDS.StandardizedStatblockData>} A promise that resolves to the SIDS object.
  */
 
@@ -48,6 +49,34 @@
  * @returns {Record<string, InspectStatblockAPI.SystemSectionDefinition>}
  *   An object where keys are section identifiers (e.g., 'abilities', 'features')
  *   and values are their definitions.
+ */
+
+/**
+ * Gets all possible toggleable element keys for the given actor and SIDS data.
+ * Used by core for "Show All" and "Hide All" functionality.
+ * @function getAllToggleableKeys
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @param {Actor} actor - The actor document.
+ * @param {SIDS.StandardizedStatblockData} [sidsData] - The SIDS data for the actor (optional optimization).
+ * @returns {Promise<Array<string>>} Array of all possible element keys that can be toggled.
+ */
+
+/**
+ * Gets the element keys for items within a specific section (e.g., all active effects, all passive features).
+ * Used by core when toggling section headers that should show/hide all items in that section.
+ * @function getInSectionItemKeys
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @param {string} sectionHeaderKey - The section header key (e.g., "section-active-effects").
+ * @param {Actor} actor - The actor document.
+ * @returns {Promise<Array<string>>} Array of element keys for items in the specified section.
+ */
+
+/**
+ * Gets the default ability keys for this system (e.g., ['str', 'dex', 'con', 'int', 'wis', 'cha'] for D&D 5e).
+ * Used by core for initializing ability-related visibility flags.
+ * @function getDefaultAbilityKeys
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @returns {Array<string>} Array of ability key strings.
  */
 
 /**

@@ -1,0 +1,69 @@
+<!-- templates/core_statblock_layout.hbs -->
+{{!-- Core Statblock Layout: Assembles all the partials with new structure and classes --}}
+
+{{#if this.headerInfo}}
+    <div class="creature-header {{#if this.headerInfo.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.headerInfo.nameElementKey}}">
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/header.hbs" this.headerInfo}}
+    </div>
+{{/if}}
+
+<div class="token-section">
+    {{#if this.portraitInfo.displayImgSrc}}
+        {{!-- Portrait partial might need its own wrapper if it's just the img tag --}}
+        {{!-- For now, assuming portrait.hbs will render the <img class="token-image"> --}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/portrait.hbs" this.portraitInfo}}
+    {{else}}
+        {{!-- Placeholder if no image, to maintain layout --}}
+        <div class="token-image-placeholder" style="width: 128px; height: 128px; border: 1px dashed #444; display: flex; align-items: center; justify-content: center; color: #666; font-size:0.8em;">No Token Art</div>
+    {{/if}}
+
+    <div class="ac-and-movement-container">
+        {{#if this.ac}}
+            <div class="ac-display-wrapper {{#if this.ac.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.ac.elementKey}}">
+                {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/ac.hbs" this.ac}}
+            </div>
+        {{/if}}
+
+        {{#if this.movement}}
+             <div class="movement-speeds">
+                {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/movement.hbs" this.movement}}
+            </div>
+        {{/if}}
+    </div>
+</div>
+
+{{#if this.health}}
+    <div class="health-section {{#if this.health.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.health.elementKey}}">
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/health.hbs" this.health}}
+    </div>
+{{/if}}
+
+{{#if this.abilityScores.length}}
+    {{!-- The ability_scores.hbs partial itself should render the <div class="ability-scores"> wrapper --}}
+    {{!-- and individual .ability items will handle their own isHiddenGM --}}
+    {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/ability_scores.hbs" abilityScores=this.abilityScores isGM=../this.isGM}}
+{{/if}}
+
+<hr class="section-divider">
+
+{{!-- Generic Sections: Active Effects, Defenses, Passive Features --}}
+{{#if this.activeEffects}}
+    {{#if (or this.activeEffects.items.length this.activeEffects.isEmpty)}}
+        {{!-- Use the specific active-effects.hbs partial --}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/active-effects.hbs" sectionData=this.activeEffects sectionClass="active-effects" isGM=../this.isGM}}
+    {{/if}}
+{{/if}}
+
+{{#if this.defenses}}
+    {{#if (or this.defenses.items.length this.defenses.isEmpty)}}
+        {{!-- Use the specific defenses.hbs partial for the defenses section --}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/defenses.hbs" sectionData=this.defenses sectionClass="defenses-grid-layout" isGM=../this.isGM}}
+    {{/if}}
+{{/if}}
+
+{{#if this.passiveFeatures}}
+    {{#if (or this.passiveFeatures.items.length this.passiveFeatures.isEmpty)}}
+        {{!-- Use the specific passive-features.hbs partial --}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.passiveFeatures sectionClass="passive-features" isGM=../this.isGM}}
+    {{/if}}
+{{/if}} 

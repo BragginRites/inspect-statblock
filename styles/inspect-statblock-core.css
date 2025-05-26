@@ -62,7 +62,7 @@
 
 
 /*******************************
- * Creature Header
+ * Creature Header (Generic)
  *******************************/
 .inspect-statblock-app .creature-header {
     text-align: center;
@@ -74,8 +74,6 @@
     margin: 0;
     color: #f0ad4e;
     font-size: 1.5em;
-    /* cursor: pointer; /* If portrait opening is tied here */
-    /* transition: color 0.2s; */
 }
 
 .inspect-statblock-app .creature-header h2 {
@@ -85,121 +83,11 @@
     font-weight: normal;
 }
 
-/*******************************
- * Token and AC Section
- *******************************/
-.inspect-statblock-app .token-section {
-    position: relative;
-    display: flex;
-    justify-content: center; /* Horizontal centering of children */
-    align-items: center; /* Vertical centering of children */
-    padding: 10px;
-    gap: 20px; /* Space between token image and ac/movement */
-}
-
-.inspect-statblock-app .token-image {
-    width: 128px; /* Adjusted for a more compact look, can be changed */
-    height: 128px;
-    border: 1px solid #333; /* Softer border */
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-.inspect-statblock-app .ac-and-movement-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center; /* Center AC shield and movement block */
-    gap: 8px; /* Space between AC and movement */
-}
-
-.inspect-statblock-app .ac-shield {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 64px; /* Size of the shield background */
-    height: 64px;
-}
-
-.inspect-statblock-app .ac-shield i.fa-shield { /* More specific selector */
-    font-size: 64px; /* Icon size */
-    color: #f0ad4e; /* Shield color */
-}
-
-.inspect-statblock-app .ac-value {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-size: 28px; /* Slightly smaller for the 64px shield */
-    font-weight: bold;
-    color: #fff; /* Text color on shield */
-    text-shadow: 1px 1px 1px rgba(0,0,0,0.7);
-}
-
-/*******************************
- * Movement Speeds
- *******************************/
-.inspect-statblock-app .movement-speeds {
-    display: flex;
-    flex-wrap: wrap; /* Allow speeds to wrap if many */
-    gap: 4px; /* Space between speed tags */
-    justify-content: center; /* Center tags if they don't fill width */
-    max-width: 120px; /* Max width for the movement block */
-    margin-top: 4px; /* Space above movement if AC is also present */
-}
-
-.inspect-statblock-app .speed-tag {
-    display: flex;
-    align-items: center;
-    gap: 4px; /* Space between icon and text in a tag */
-    background: #2a2a2a; /* Tag background */
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    color: #ddd; /* Text color */
-    border: 1px solid #444; /* Tag border */
-}
-
-.inspect-statblock-app .speed-tag i { /* For FontAwesome icons */
-    font-size: 0.9em;
-    color: #f0ad4e; /* Icon color */
-    width: 14px; /* Fixed width for alignment */
-    text-align: center;
-}
-
-.inspect-statblock-app .speed-tag span { /* For the speed value */
-    min-width: 20px; /* Ensure some space for value */
-    text-align: right;
-}
-
-/*******************************
- * Health Section
- *******************************/
-.inspect-statblock-app .health-section {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px; /* Space between current/max and temp HP */
-    padding: 5px 10px;
-    margin-top: 5px; /* Space from section above */
-    border-top: 1px solid #383838;
-    border-bottom: 1px solid #383838;
-}
-
-.inspect-statblock-app .current-health {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #ddd;
-}
-
-/* D&D 5e specific .increased-max / .decreased-max moved to dnd5e-styles.css */
-
-.inspect-statblock-app .temp-health {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #5c9dd1; /* Color for temporary HP */
-}
+/*
+ * System-specific sections (token, AC, movement, health) have been moved to
+ * systems/{systemId}/styles/ directories to allow for system-specific layouts
+ * and styling while keeping the core truly generic.
+ */
 
 /*******************************
  * Generic Sections (for Effects, Defenses, Features)
@@ -247,86 +135,12 @@
     gap: 8px; /* Gap between items in the grid */
 }
 
-/* Defenses Grid Layout & specific defense item/tag styling moved to dnd5e-styles.css */
-
-/* Remove box styling from category item, it's now more of a logical group */
-.inspect-statblock-app .defense-category-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px; /* Space between category name and tags container */
-    /* padding: 8px; */ /* Remove padding */
-    /* background: rgba(0, 0, 0, 0.15); */ /* Remove background */
-    /* border: 1px solid #383838; */ /* Remove border */
-    /* border-radius: 4px; */ /* Remove border-radius */
-}
-
-.inspect-statblock-app[data-user-is-gm="true"] .defense-category-item .defense-category-name {
-    font-weight: bold;
-    color: #e6a23c; /* A slightly different orange to distinguish from section titles */
-    font-size: 0.95em;
-    cursor: pointer; /* Make category name clickable for GMs */
-    transition: color 0.2s;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #444; /* Visual cue for clickable header */
-    margin-bottom: 4px;
-}
-
-.inspect-statblock-app[data-user-is-gm="true"] .defense-category-item .defense-category-name:hover {
-    color: #ffd700;
-}
-
-/* Player view of category name (if not ??) */
-.inspect-statblock-app:not([data-user-is-gm="true"]) .defense-category-item .defense-category-name {
-    font-weight: bold;
-    color: #e6a23c;
-    font-size: 0.95em;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #444;
-    margin-bottom: 4px;
-    text-align: center; /* Center category name text */
-}
-
-
-.inspect-statblock-app .defense-tags-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px; /* Gap between individual tags */
-    padding-left: 10px; /* Indent tags slightly under their category name */
-    justify-content: center; /* Center tags within the container */
-}
-
-.inspect-statblock-app .defense-tag {
-    background-color: #333; /* Darker background for tags */
-    color: #ccc;
-    padding: 3px 7px;
-    border-radius: 3px;
-    font-size: 0.8em;
-    border: 1px solid #555;
-}
-
-/* Styling for GMs to indicate tags are interactive */
-.inspect-statblock-app[data-user-is-gm="true"] .defense-tag {
-    cursor: pointer;
-    transition: background-color 0.2s, border-color 0.2s;
-}
-
-.inspect-statblock-app[data-user-is-gm="true"] .defense-tag:hover {
-    background-color: #444;
-    border-color: #777;
-}
-
-/* GM Hidden state for individual tags - element-hidden-to-players class handles this already in general CSS */
-/* .inspect-statblock-app[data-user-is-gm="true"] .defense-tag.element-hidden-to-players { ... } */
-
-.inspect-statblock-app .defense-category-item .no-items-in-category {
-    color: #777;
-    font-style: italic;
-    font-size: 0.85em;
-    text-align: center; /* Center "None" text if tags are empty */
-}
+/*
+ * System-specific defense styling has been moved to systems/{systemId}/styles/
+ * This allows each system to implement their own defense structures and styling.
+ */
 
 /* Individual item styling (generic) - for features, effects */
-/* Individual item styling (generic) - for features, effects, defenses */
 .inspect-statblock-app .statblock-item {
     display: flex;
     align-items: center;
@@ -450,12 +264,7 @@
     border-color: #666;
 }
 
-/* Style for the defense category name */
-.defense-category-name {
-    font-weight: bold;
-    margin-right: 0.5em;
-    /* Player view of category name (if not ??) */
-}
+/* Removed duplicate .defense-category-name - defined in system-specific styles */
 
 .gm-hidden-element .gm-hidden-indicator {
     display: inline; /* Show the (HIDDEN) text */

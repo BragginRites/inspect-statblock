@@ -1,6 +1,6 @@
 // Core application logic for Inspect Statblock module
-import { renderStatblockFromSIDS } from './core-renderer.js';
-import { Dnd5eHandler } from '../systems/dnd5e/dnd5e-handler.js'; // Adjusted path
+import { renderStatblockFromSIDS } from './renderer.js';
+import { systemRegistry } from './system-registry.js';
 import { registerCoreSettings } from './settings.js'; // Import settings registration
 
 const MODULE_ID = 'inspect-statblock';
@@ -11,6 +11,12 @@ const systemTemplateRegistry = {};
 
 export const InspectStatblockCore = {
     MODULE_ID,
+    
+    /**
+     * Registers system-specific template paths for loading.
+     * @param {string} systemId - The game system ID.
+     * @param {Array<string>} paths - Array of template paths to register.
+     */
     registerSystemTemplatePaths: function(systemId, paths) {
         if (!Array.isArray(paths)) {
             console.error(`${MODULE_ID} | InspectStatblockCore.registerSystemTemplatePaths: paths must be an array for system ${systemId}.`);
@@ -19,8 +25,41 @@ export const InspectStatblockCore = {
         systemTemplateRegistry[systemId] = (systemTemplateRegistry[systemId] || []).concat(paths);
         console.log(`${MODULE_ID} | InspectStatblockCore: Registered template paths for ${systemId}:`, paths);
     },
-    // TODO: Add system handler registration here later
-    // registerSystemHandler: function(systemId, handlerClass) { ... }
+    
+    /**
+     * Registers a system handler with the core module.
+     * @param {string} systemId - The game system ID (e.g., 'dnd5e', 'pf2e').
+     * @param {object} handlerClass - The system handler instance implementing the SystemHandler interface.
+     */
+    registerSystemHandler: function(systemId, handlerClass) {
+        if (!handlerClass) {
+            console.error(`${MODULE_ID} | InspectStatblockCore.registerSystemHandler: handlerClass must be provided for system ${systemId}.`);
+            return;
+        }
+        
+        try {
+            systemRegistry.register(systemId, handlerClass);
+        } catch (error) {
+            console.error(`${MODULE_ID} | InspectStatblockCore.registerSystemHandler: Failed to register handler for ${systemId}:`, error);
+        }
+    },
+    
+    /**
+     * Gets the system handler registry for advanced use cases.
+     * @returns {SystemHandlerRegistry} The system registry instance.
+     */
+    getSystemRegistry: function() {
+        return systemRegistry;
+    },
+    
+    /**
+     * Gets a system handler for the specified system ID.
+     * @param {string} systemId - The game system ID.
+     * @returns {object|null} The system handler, or null if not found.
+     */
+    getSystemHandler: function(systemId) {
+        return systemRegistry.getHandler(systemId);
+    }
 };
 
 globalThis.InspectStatblockCore = InspectStatblockCore;
@@ -127,7 +166,6 @@ class InspectStatblockApp extends Application {
                 console.log(`${MODULE_ID} | Initializing default visibility flags for GM for actor: ${this.actor.name}`);
                 const sectionDefinitions = systemHandler.getSystemSectionDefinitions();
                 const newFlags = {};
-                const dnd5eAbilities = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 
                 for (const defKey in sectionDefinitions) {
                     const definition = sectionDefinitions[defKey];
@@ -138,8 +176,10 @@ class InspectStatblockApp extends Application {
                         if (definition.type === 'single') {
                             newFlags[definition.keyPattern] = isHidden;
                         } else if (definition.type === 'group') {
-                            if (definition.keyPattern === 'ability-') { // DnD5e specific handling
-                                dnd5eAbilities.forEach(abilKey => {
+                            if (definition.keyPattern === 'ability-') {
+                                // Delegate to system handler for ability keys
+                                const abilityKeys = systemHandler.getDefaultAbilityKeys?.() || [];
+                                abilityKeys.forEach(abilKey => {
                                     newFlags[`ability-${abilKey}`] = isHidden;
                                 });
                             }
@@ -171,10 +211,7 @@ class InspectStatblockApp extends Application {
     
     async _getSystemHandler() {
         const systemId = this.actor.parent?.system?.id || this.actor.system?.id || game.system.id;
-        if (systemId === 'dnd5e') {
-            return Dnd5eHandler;
-        }
-        return null;
+        return systemRegistry.getHandler(systemId);
     }
 
     activateListeners(html) {
@@ -231,15 +268,27 @@ class InspectStatblockApp extends Application {
         const keys = new Set();
         if (!systemHandler || !this.actor) return [];
         
+        // Delegate to system handler for complete key generation
+        if (systemHandler.getAllToggleableKeys) {
+            try {
+                const allKeys = await systemHandler.getAllToggleableKeys(this.actor, this.sidsData);
+                return allKeys;
+            } catch (error) {
+                console.error(`${MODULE_ID} | Error calling systemHandler.getAllToggleableKeys:`, error);
+                // Fall back to basic implementation below
+            }
+        }
+        
+        // Fallback: Basic implementation for handlers that don't implement getAllToggleableKeys yet
         const sectionDefs = systemHandler.getSystemSectionDefinitions();
-        const sidsData = this.sidsData; // Use cached SIDS data
 
         for (const def of Object.values(sectionDefs)) {
             if (def.type === 'single') {
                 keys.add(def.keyPattern);
             } else if (def.type === 'group') {
                 if (def.keyPattern === 'ability-') {
-                    ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(abKey => keys.add(`ability-${abKey}`));
+                    const abilityKeys = systemHandler.getDefaultAbilityKeys?.() || [];
+                    abilityKeys.forEach(abKey => keys.add(`ability-${abKey}`));
                 }
             }
         }
@@ -248,14 +297,19 @@ class InspectStatblockApp extends Application {
             this.actor.effects.filter(e => !e.disabled).forEach(effect => keys.add(`effect-${effect.id}`));
         }
 
-        if (this.actor.items && systemHandler.SYSTEM_ID === 'dnd5e') {
-            this.actor.items.filter(item => item.type === "feat" && (item.system.activation?.type === "" || !item.system.activation?.type))
-                .forEach(item => keys.add(`feature-${item.id}`));
+        // Let system handler provide feature keys rather than hardcoding
+        if (systemHandler.getInSectionItemKeys) {
+            try {
+                const featureKeys = await systemHandler.getInSectionItemKeys('section-passive-features', this.actor);
+                featureKeys.forEach(key => keys.add(key));
+            } catch (error) {
+                console.warn(`${MODULE_ID} | Error getting passive feature keys from system handler:`, error);
+            }
         }
         
         // Add individual defense tag keys from SIDS data
-        if (sidsData && sidsData.defenses && sidsData.defenses.items) {
-            sidsData.defenses.items.forEach(category => {
+        if (this.sidsData && this.sidsData.defenses && this.sidsData.defenses.items) {
+            this.sidsData.defenses.items.forEach(category => {
                 if (category.tags && category.tags.length > 0) {
                     category.tags.forEach(tag => keys.add(tag.elementKey));
                 }
@@ -333,7 +387,7 @@ class InspectStatblockApp extends Application {
         ];
 
         if (batchToggleSectionHeaderKeys.includes(elementKey)) {
-                const itemKeys = await this._getInSectionItemKeys(elementKey, this.systemHandler, this.actor);
+                const itemKeys = await this._getInSectionItemKeys(elementKey, this.systemHandler);
             if (!itemKeys || itemKeys.length === 0) {
                     // If it's a section header that could have items but currently doesn't (e.g. no active effects)
                     // and it has its own flag, toggle that. Otherwise, no action if no items.
@@ -366,8 +420,20 @@ class InspectStatblockApp extends Application {
     }
 
     async _getInSectionItemKeys(sectionHeaderKey, systemHandler) {
+        if (!this.actor) return [];
+
+        // Delegate to system handler if available
+        if (systemHandler && systemHandler.getInSectionItemKeys) {
+            try {
+                return await systemHandler.getInSectionItemKeys(sectionHeaderKey, this.actor);
+            } catch (error) {
+                console.error(`${MODULE_ID} | Error calling systemHandler.getInSectionItemKeys:`, error);
+                // Fall back to basic implementation below
+            }
+        }
+
+        // Fallback: Basic implementation for handlers that don't implement getInSectionItemKeys yet
         const itemKeys = new Set();
-        if (!this.actor) return []; // this.actor should be available
 
         switch (sectionHeaderKey) {
             case "section-active-effects":
@@ -377,17 +443,12 @@ class InspectStatblockApp extends Application {
                 }
                 break;
             case "section-passive-features":
-                // Assuming DnD5e specific logic for now, this might need to be abstracted further via systemHandler
-                if (this.actor.items && systemHandler && systemHandler.SYSTEM_ID === 'dnd5e') {
-                    this.actor.items.filter(item => item.type === "feat" && 
-                                                (item.system.activation?.type === "" || !item.system.activation?.type))
-                        .forEach(item => itemKeys.add(`feature-${item.id}`));
-                }
-                // TODO: For other systems, systemHandler might need a method like `getPassiveFeatureItemKeys(actor)`
+                // Fallback can't provide system-specific logic without hardcoding
+                console.warn(`${MODULE_ID} | _getInSectionItemKeys: No system handler method available for ${sectionHeaderKey}. System handler should implement getInSectionItemKeys.`);
                 break;
             default:
                 console.warn(`${MODULE_ID} | _getInSectionItemKeys called with unhandled sectionHeaderKey: ${sectionHeaderKey}`);
-                return []; // Return empty for unhandled keys
+                return [];
         }
         return Array.from(itemKeys);
     }
@@ -500,19 +561,9 @@ Hooks.once('init', async function() {
     console.log(`${MODULE_ID} | Initializing module`);
     
     registerCoreSettings();
-
-    const systemId = game.system.id;
-    let systemHandler;
-    if (systemId === 'dnd5e') {
-        systemHandler = Dnd5eHandler;
-    }
-
-    if (systemHandler && typeof systemHandler.registerSystemSpecificSettings === 'function') {
-        systemHandler.registerSystemSpecificSettings();
-    }
     
     _registerHandlebarsHelpers();
-    await registerSystemTemplates();
+    // Moved template loading to 'ready' hook to allow system handlers to register first
     
     game.keybindings.register(MODULE_ID, 'openInspectStatblock', {
         name: 'Inspect Statblock: Open',
@@ -529,6 +580,11 @@ Hooks.once('init', async function() {
         onDown: () => { _closeAllInspectStatblockApps(); return true; },
         restricted: false, precedence: CONST.KEYBINDING_PRECEDENCE.NORMAL
     });
+});
+
+// Load system templates after all modules have initialized
+Hooks.once('ready', async function() {
+    await registerSystemTemplates();
 });
 
 // Expose for other modules or debugging if needed.

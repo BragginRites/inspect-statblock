@@ -15,10 +15,12 @@
     },
     "relationships": {},
     "esmodules": [
-      "scripts/sids-definition.js",
-      "scripts/system-adapter-api.js",
-      "scripts/core-renderer.js",
-      "scripts/core.js"
+      "src/core/sids-definition.js",
+      "src/api/system-adapter-api.js",
+      "src/core/system-registry.js",
+      "src/core/renderer.js",
+      "src/core/application.js",
+      "systems/dnd5e/dnd5e-handler.js"
     ],
     "styles": [
       "styles/inspect-statblock-core.css",
