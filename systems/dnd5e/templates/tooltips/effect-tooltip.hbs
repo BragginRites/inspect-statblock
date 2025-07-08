@@ -1,0 +1,69 @@
+<section class="content inspect-statblock-tooltip effect-tooltip">
+    <section class="header">
+        <div class="top">
+            {{#if img}}
+                <img src="{{ img }}" alt="{{ name }}" class="effect-icon">
+            {{else}}
+                <i class="fas fa-magic effect-icon-fallback"></i>
+            {{/if}}
+            <div class="name name-stacked">
+                <span class="title">{{ name }}</span>
+                {{#if subtitle}}
+                    <span class="subtitle">{{ subtitle }}</span>
+                {{/if}}
+            </div>
+        </div>
+        <div class="bottom">
+            {{#if duration}}
+                <div class="duration">
+                    {{#if duration.rounds}}
+                        <i class="fas fa-clock"></i>
+                        <span>{{ duration.rounds }} {{ localize "DND5E.Rounds" }}</span>
+                    {{else if duration.turns}}
+                        <i class="fas fa-hourglass-half"></i>
+                        <span>{{ duration.turns }} {{ localize "DND5E.Turns" }}</span>
+                    {{else if (eq duration.type "permanent")}}
+                        <i class="fas fa-infinity"></i>
+                        <span>{{ localize "DND5E.DurationPermanent" }}</span>
+                    {{else if flags.dae.specialDuration}}
+                        <i class="fas fa-star"></i>
+                        <span>{{ localize "DND5E.EffectDurationSpecial" }}</span>
+                    {{/if}}
+                </div>
+            {{/if}}
+            
+            {{#if origin}}
+                <div class="source">
+                    <i class="fas fa-link"></i>
+                    <span>{{ localize "DND5E.Source" }}: {{ origin.name }}</span>
+                </div>
+            {{/if}}
+        </div>
+    </section>
+
+    {{#if description}}
+        <section class="description">
+            {{{ description }}}
+        </section>
+    {{/if}}
+
+    {{#if changes.length}}
+        <section class="changes">
+            <h4>{{ localize "DND5E.Changes" }}</h4>
+            <ul class="effect-changes">
+                {{#each changes}}
+                    <li class="change-item">
+                        <strong>{{ this.key }}:</strong> {{ this.mode }} {{ this.value }}
+                    </li>
+                {{/each}}
+            </ul>
+        </section>
+    {{/if}}
+
+    {{#if controlHints}}
+        <div class="control-hint">
+            <img src="systems/dnd5e/icons/svg/mouse-middle.svg" alt="{{ localize "DND5E.Controls.MiddleClick" }}">
+            <span>{{ localize "DND5E.Controls.LockHint" }}</span>
+        </div>
+    {{/if}}
+</section> 

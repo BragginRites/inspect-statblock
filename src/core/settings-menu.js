@@ -2,7 +2,6 @@ const MODULE_ID = 'inspect-statblock';
 
 /**
  * Hardcoded D&D 5e settings for initial testing.
- * TODO: Make this dynamic based on system later.
  */
 const HARDCODED_DND5E_SETTINGS = [
     { keySuffix: "dnd5e-showDefault-headerName", name: "Name", hint: "Show creature name by default" },

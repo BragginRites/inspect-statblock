@@ -1,0 +1,77 @@
+<section class="content inspect-statblock-tooltip feature-tooltip">
+    <section class="header">
+        <div class="top">
+            {{#if img}}
+                <img src="{{ img }}" alt="{{ name }}" class="feature-icon">
+            {{else}}
+                <i class="fas fa-scroll feature-icon-fallback"></i>
+            {{/if}}
+            <div class="name name-stacked">
+                <span class="title">{{ name }}</span>
+                {{#if subtitle}}
+                    <span class="subtitle">{{{ subtitle }}}</span>
+                {{/if}}
+            </div>
+        </div>
+        <div class="bottom">
+            {{#if type}}
+                <div class="item-type">
+                    <i class="fas fa-tag"></i>
+                    <span>{{ localize type.label }}</span>
+                </div>
+            {{/if}}
+            
+            {{#if uses.max}}
+                <div class="charges">
+                    <i class="fas fa-battery-three-quarters"></i>
+                    <span class="value">{{ uses.value }}</span>
+                    <span class="separator">&sol;</span>
+                    <span class="max">{{ uses.max }}</span>
+                    <span>{{ localize "DND5E.Charges" }}</span>
+                </div>
+            {{/if}}
+        </div>
+    </section>
+
+    {{#if description.value}}
+        <section class="description">
+            {{{ description.value }}}
+        </section>
+    {{/if}}
+
+    {{#if properties.length}}
+        <ul class="pills">
+            {{#each properties}}
+                <li class="pill transparent">
+                    <span class="label">{{ this }}</span>
+                </li>
+            {{/each}}
+        </ul>
+    {{/if}}
+
+    {{#if activities}}
+        <section class="activities">
+            <h4>{{ localize "DND5E.Activities" }}</h4>
+            {{#each activities}}
+                <div class="activity-item">
+                    {{#if this.name}}
+                        <strong>{{ this.name }}:</strong>
+                    {{/if}}
+                    {{#if this.activation.type}}
+                        <span class="activation">{{ localize this.activation.type }}</span>
+                    {{/if}}
+                    {{#if this.range.value}}
+                        <span class="range">{{ this.range.value }} {{ this.range.units }}</span>
+                    {{/if}}
+                </div>
+            {{/each}}
+        </section>
+    {{/if}}
+
+    {{#if controlHints}}
+        <div class="control-hint">
+            <img src="systems/dnd5e/icons/svg/mouse-middle.svg" alt="{{ localize "DND5E.Controls.MiddleClick" }}">
+            <span>{{ localize "DND5E.Controls.LockHint" }}</span>
+        </div>
+    {{/if}}
+</section> 

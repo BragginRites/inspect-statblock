@@ -7,6 +7,9 @@
  */
 
 import { registerDnd5eSettings } from './dnd5e-settings.js';
+import { Dnd5eTooltipManager } from './dnd5e-tooltips.js';
+
+const MODULE_ID = 'inspect-statblock';
 
 // Helper functions that might be needed from main.js (e.g., enrichHTMLClean) will eventually be
 // either passed in, imported if they become generic utilities, or their equivalents
@@ -34,6 +37,9 @@ Hooks.once('init', () => {
           Dnd5eHandler.registerSystemSpecificSettings();
       }
 
+      // Initialize tooltip manager for enhanced tooltips
+      Dnd5eTooltipManager.initialize();
+
       // Register template paths
       const dnd5eTemplatePaths = [
           'systems/dnd5e/templates/dnd5e-statblock-layout.hbs',  // Main layout template
@@ -45,7 +51,10 @@ Hooks.once('init', () => {
           'systems/dnd5e/templates/partials/ability_scores.hbs',
           'systems/dnd5e/templates/partials/defenses.hbs',
           'systems/dnd5e/templates/partials/active-effects.hbs',
-          'systems/dnd5e/templates/partials/passive-features.hbs'
+          'systems/dnd5e/templates/partials/passive-features.hbs',
+          // Enhanced tooltip templates
+          'systems/dnd5e/templates/tooltips/effect-tooltip.hbs',
+          'systems/dnd5e/templates/tooltips/feature-tooltip.hbs'
       ];
 
       if (globalThis.InspectStatblockCore && globalThis.InspectStatblockCore.registerSystemTemplatePaths) {
@@ -250,16 +259,9 @@ async function getStandardizedActorData(actor, token, hiddenElements, isGM) {
   }
   
   // Determine if the defenses section is effectively empty for display purposes
-  // It's empty if all its category items have subText that indicates emptiness for the current user (None for GM, ?? for Player)
-  let allCategoriesEffectivelyEmpty = true;
-  if (defensesSection.items.length > 0) {
-      allCategoriesEffectivelyEmpty = defensesSection.items.every(item => {
-          // A category is effectively empty if its name is "??" (player view, category hidden)
-          // or if it has no tags (GM view, or player view and category visible but no actual defenses).
-          return item.name === "??" || item.tags.length === 0;
-      });
-  }
-  defensesSection.isEmpty = defensesSection.items.length === 0 || allCategoriesEffectivelyEmpty;
+  // ALWAYS show individual defense categories (Resistances, Immunities, etc.)
+  // Individual categories will display "None" for GM or "??" for players when empty
+  defensesSection.isEmpty = false;
 
   // Get the base actor for HP data to ensure we're showing character sheet HP, not token overrides
   let baseActorForHP = actor;
@@ -570,17 +572,45 @@ function _getActiveEffectsData(actor, hiddenElements, isGM) {
         subText = game.i18n.localize("DND5E.EffectDurationSpecial"); 
     }
 
+    console.log(`${MODULE_ID} | 🎭 Processing effect for tooltip data:`, effect.name);
+    console.log(`${MODULE_ID} | - Effect UUID:`, effect.uuid || `Actor.${actor.id}.ActiveEffect.${effect.id}`);
+    console.log(`${MODULE_ID} | - Effect description:`, effect.description);
+    console.log(`${MODULE_ID} | - Effect duration:`, effect.duration);
+    console.log(`${MODULE_ID} | - Effect changes:`, effect.changes);
+    console.log(`${MODULE_ID} | - Effect origin:`, effect.origin);
+
     effectsSection.items.push({
       id: effect.id,
       name: isEffectHiddenForPlayer ? "??" : effect.name,
       icon: isEffectHiddenForPlayer ? "" : effect.img,
-      // TODO inspect-statblock: Fix HTML content causing display issues  
-      // Strip HTML tags from description for tooltip data attributes to prevent rendering issues
-      descriptionHTML: isEffectHiddenForPlayer ? "" : (effect.description || "").replace(/<[^>]*>/g, ""),
+      // Enhanced: Keep full HTML for rich tooltips instead of stripping tags
+      descriptionHTML: isEffectHiddenForPlayer ? "" : (effect.description || ""),
       subText: isEffectHiddenForPlayer ? "" : subText, // Don't show subtext like duration if item is hidden to player
       elementKey: elementKey,
       isHiddenGM: effectIsHiddenByGM,
       uuid: effect.uuid || `Actor.${actor.id}.ActiveEffect.${effect.id}`,
+      // Enhanced tooltip data for Active Effects
+      enhancedTooltipData: isEffectHiddenForPlayer ? null : {
+        name: effect.name,
+        img: effect.img,
+        description: effect.description || "",
+        duration: {
+          rounds: effect.duration.rounds,
+          turns: effect.duration.turns,
+          seconds: effect.duration.seconds,
+          type: effect.duration.type,
+          remaining: effect.duration.remaining,
+          label: effect.duration.label
+        },
+        origin: effect.origin ? {
+          name: effect.origin.name || "Unknown",
+          uuid: effect.origin.uuid
+        } : null,
+        changes: effect.changes || [],
+        flags: effect.flags || {},
+        disabled: effect.disabled,
+        transfer: effect.transfer
+      },
       rawEffectDuration: { rounds: effect.duration.rounds, turns: effect.duration.turns },
       nativeTooltipText: isEffectHiddenForPlayer ? "" : effect.name,
     });
@@ -711,6 +741,18 @@ function _getSingleDefenseCategoryItem(defenseValuesObjectOrArray, categoryName,
             rawTagStrings.push("??"); // For tooltip
         }
     }
+    
+    // If category is completely empty (no tags for either GM or player), still show it with ??
+    if (allPotentialGmTags.length === 0) {
+        individualTagItems.push({
+            id: categoryElementKey + "-empty-placeholder",
+            name: "??",
+            elementKey: categoryElementKey + "-empty-placeholder",
+            isPlaceholder: true,
+            isHiddenGM: false,
+        });
+        rawTagStrings.push("??");
+    }
   }
  
   // Category name is always its real name now, not "??"
@@ -747,8 +789,21 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
     isHiddenGM: isGM && _shouldHideElement(sectionElementKey, hiddenElements, isGM)
   };
 
+  // List of common D&D 5e actions that should be excluded from passive features
+  const COMMON_ACTIONS = new Set([
+    'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
+    'help', 'hide', 'ready', 'search', 'use an object',
+    'grapple', 'shove', 'improvised action'
+  ]);
+
   const passiveFeatureItems = (actor.items || []).filter(item => {
     if (item.type !== "feat") return false;
+    
+    // Exclude common D&D actions from features list
+    const itemNameLower = item.name.toLowerCase();
+    if (COMMON_ACTIONS.has(itemNameLower)) {
+      return false;
+    }
     
     // Check if this feature has any activities that require activation
     // If it has no activities or all activities are passive, consider it a passive feature
@@ -991,12 +1046,23 @@ export const Dnd5eHandler = {
       actor.effects.filter(e => !e.disabled).forEach(effect => keys.add(`effect-${effect.id}`));
     }
 
-    // TODO inspect-statblock: Fix inconsistent passive feature detection
-    // Use the SAME logic as _getPassiveFeaturesData to ensure consistency
     // Add passive features - using modern activities system logic
     if (actor.items) {
+      // List of common D&D 5e actions that should be excluded from passive features
+      const COMMON_ACTIONS = new Set([
+        'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
+        'help', 'hide', 'ready', 'search', 'use an object',
+        'grapple', 'shove', 'improvised action'
+      ]);
+      
       const passiveFeatureItems = actor.items.filter(item => {
         if (item.type !== "feat") return false;
+        
+        // Exclude common D&D actions from features list
+        const itemNameLower = item.name.toLowerCase();
+        if (COMMON_ACTIONS.has(itemNameLower)) {
+          return false;
+        }
         
         // Check if this feature has any activities that require activation
         // If it has no activities or all activities are passive, consider it a passive feature
@@ -1053,11 +1119,22 @@ export const Dnd5eHandler = {
         break;
         
       case "section-passive-features":
-        // TODO inspect-statblock: Fix inconsistent passive feature detection
-        // Use the SAME logic as _getPassiveFeaturesData to ensure consistency
         if (actor.items) {
+          // List of common D&D 5e actions that should be excluded from passive features
+          const COMMON_ACTIONS = new Set([
+            'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
+            'help', 'hide', 'ready', 'search', 'use an object',
+            'grapple', 'shove', 'improvised action'
+          ]);
+          
           const passiveFeatureItems = actor.items.filter(item => {
             if (item.type !== "feat") return false;
+            
+            // Exclude common D&D actions from features list
+            const itemNameLower = item.name.toLowerCase();
+            if (COMMON_ACTIONS.has(itemNameLower)) {
+              return false;
+            }
             
             // Check if this feature has any activities that require activation
             // If it has no activities or all activities are passive, consider it a passive feature

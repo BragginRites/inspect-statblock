@@ -21,17 +21,21 @@
       "src/core/renderer.js",
       "src/core/settings-menu.js",
       "src/core/application.js",
-      "systems/dnd5e/dnd5e-handler.js"
+      "systems/dnd5e/dnd5e-handler.js",
+      "systems/dnd5e/dnd5e-tooltips.js"
     ],
     "styles": [
       "styles/inspect-statblock-core.css",
       "styles/defaults-config.css",
-      "systems/dnd5e/styles/dnd5e-styles.css"
+      "systems/dnd5e/styles/dnd5e-styles.css",
+      "systems/dnd5e/styles/tooltip.css"
     ],
     "templates": [
       "templates/core_statblock_layout.hbs",
       "templates/inspect-statblock-shell.hbs",
-      "templates/default-visibility-config.hbs"
+      "templates/default-visibility-config.hbs",
+      "systems/dnd5e/templates/tooltips/effect-tooltip.hbs",
+      "systems/dnd5e/templates/tooltips/feature-tooltip.hbs"
     ],
     "languages": [
       {

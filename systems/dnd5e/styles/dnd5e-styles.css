@@ -1,5 +1,8 @@
 /* D&D 5e Specific Styles for Inspect Statblock */
 
+/* Import enhanced tooltip styles */
+@import url("tooltip.css");
+
 /*******************************
  * D&D 5e Token and AC Section
  *******************************/
