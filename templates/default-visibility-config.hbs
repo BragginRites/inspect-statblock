@@ -1,0 +1,162 @@
+<form class="flexcol default-visibility-config">
+    <div class="form-header">
+        <h2><i class="fas fa-eye"></i> Configure Default Visibility</h2>
+        <p class="notes">Set which statblock elements are shown by default for new actors. Currently configured for: <strong>{{systemId}}</strong></p>
+    </div>
+
+    <div class="form-group">
+        <div class="button-group">
+            <button type="button" data-action="toggle-all-on" class="toggle-button show-all">
+                <i class="fas fa-eye"></i> Show All ({{totalSettings}})
+            </button>
+            <button type="button" data-action="toggle-all-off" class="toggle-button hide-all">
+                <i class="fas fa-eye-slash"></i> Hide All
+            </button>
+        </div>
+    </div>
+
+    {{#if settings}}
+        <!-- Header Information Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-id-card"></i> Header Information</h3>
+            <p class="notes">Basic creature identification and stats</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (or (eq key "dnd5e-showDefault-headerName") 
+                              (eq key "dnd5e-showDefault-headerCrLevel")
+                              (eq key "dnd5e-showDefault-headerSize")
+                              (eq key "dnd5e-showDefault-headerType"))}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+
+        <!-- Combat Stats Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-shield-alt"></i> Combat Stats</h3>
+            <p class="notes">Armor class and health information</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (or (eq key "dnd5e-showDefault-ac")
+                              (eq key "dnd5e-showDefault-health"))}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+
+        <!-- Movement Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-running"></i> Movement Speeds</h3>
+            <p class="notes">Various movement types and speeds</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (or (eq key "dnd5e-showDefault-movementWalk")
+                              (eq key "dnd5e-showDefault-movementFly")
+                              (eq key "dnd5e-showDefault-movementSwim")
+                              (eq key "dnd5e-showDefault-movementClimb")
+                              (eq key "dnd5e-showDefault-movementBurrow"))}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+
+        <!-- Abilities Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-dice-d20"></i> Ability Scores</h3>
+            <p class="notes">Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (eq key "dnd5e-showDefault-abilities")}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+
+        <!-- Defenses Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-shield"></i> Defenses</h3>
+            <p class="notes">Damage resistances, immunities, vulnerabilities, and condition immunities</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (or (eq key "dnd5e-showDefault-defensesSection")
+                              (eq key "dnd5e-showDefault-defenseResistances")
+                              (eq key "dnd5e-showDefault-defenseImmunities")
+                              (eq key "dnd5e-showDefault-defenseVulnerabilities")
+                              (eq key "dnd5e-showDefault-defenseConditions"))}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+
+        <!-- Features & Effects Section -->
+        <div class="container-section">
+            <h3><i class="fas fa-magic"></i> Features & Effects</h3>
+            <p class="notes">Active effects and passive features</p>
+            <div class="container-chips">
+                {{#each settings}}
+                    {{#if (or (eq key "dnd5e-showDefault-activeEffectsSection")
+                              (eq key "dnd5e-showDefault-passiveFeaturesSection"))}}
+                        <div class="chip {{#if enabled}}active{{/if}}" 
+                             data-value="{{key}}" 
+                             data-active="{{enabled}}"
+                             title="{{hint}}">
+                            {{name}}
+                            <input type="hidden" name="setting-{{key}}" value="{{enabled}}" />
+                        </div>
+                    {{/if}}
+                {{/each}}
+            </div>
+        </div>
+    {{else}}
+        <div class="container-section">
+            <p class="no-settings">
+                <i class="fas fa-exclamation-triangle"></i> 
+                No settings available for system "{{systemId}}".
+            </p>
+        </div>
+    {{/if}}
+
+    <footer class="sheet-footer flexrow">
+        <button type="submit" name="submit" class="dialog-button">
+            <i class="fas fa-save"></i> Save Settings
+        </button>
+        <button type="button" name="cancel" class="dialog-button" onclick="this.closest('.app').querySelector('.header-button.close').click()">
+            <i class="fas fa-times"></i> Cancel
+        </button>
+    </footer>
+</form> 

@@ -94,7 +94,9 @@ function _shouldHideElement(elementKey, hiddenElements, isGM) {
   });
 
   if (matchingDef?.defaultShowSettingKey) {
-    const showByDefault = game.settings.get('inspect-statblock', matchingDef.defaultShowSettingKey);
+                // Read from the visibility settings object instead of individual settings
+                const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
+                const showByDefault = defaultVisibilitySettings[matchingDef.defaultShowSettingKey] ?? true;
     return !showByDefault; // If showByDefault is false, we should hide
   }
 
@@ -259,6 +261,15 @@ async function getStandardizedActorData(actor, token, hiddenElements, isGM) {
   }
   defensesSection.isEmpty = defensesSection.items.length === 0 || allCategoriesEffectivelyEmpty;
 
+  // Get the base actor for HP data to ensure we're showing character sheet HP, not token overrides
+  let baseActorForHP = actor;
+  if (token && token.document && token.document.actorId) {
+    const baseActor = game.actors.get(token.document.actorId);
+    if (baseActor) {
+      baseActorForHP = baseActor;
+    }
+  }
+
   // Placeholder for the SIDS object we will build
   const sidsData = {
     systemSpecificLayoutTemplate: "modules/inspect-statblock/systems/dnd5e/templates/dnd5e-statblock-layout.hbs",
@@ -288,7 +299,7 @@ async function getStandardizedActorData(actor, token, hiddenElements, isGM) {
       isHiddenGM: isGM && _shouldHideElement("section-ac", hiddenElements, isGM),
     },
     movement: _getMovementData(actor.system.attributes, hiddenElements, isGM),
-    health: _getHealthData(actor.system.attributes, _shouldHideElement("section-hp", hiddenElements, isGM), isGM),
+    health: _getHealthData(baseActorForHP, _shouldHideElement("section-hp", hiddenElements, isGM), isGM),
     abilityScores: _getAbilityScoresData(actor.system.abilities, hiddenElements, isGM),
     activeEffects: _getActiveEffectsData(actor, hiddenElements, isGM),
     defenses: defensesSection, // Assign the newly constructed defenses section
@@ -452,39 +463,32 @@ function _getMovementData(attributes, hiddenElements, isGM) {
 
 /**
  * Processes actor health data for SIDS.
- * @param {object} attributes - The actor.system.attributes object.
+ * @param {Actor} baseActor - The base actor document (for character sheet HP).
  * @param {boolean} isSectionHidden - Whether the whole health section is hidden for the player.
  * @param {boolean} isGM - Whether the current user is a GM.
  * @returns {SIDS.HealthInfo}
  * @private
  */
-function _getHealthData(attributes, isSectionHidden, isGM) {
-  const hpData = attributes?.hp;
+function _getHealthData(baseActor, isSectionHidden, isGM) {
   const elementKey = "section-hp";
-  const tempMax = parseInt(hpData?.tempmax, 10) || 0;
+  
+  // Get HP from the base actor to ensure we're showing character sheet HP, not token overrides
+  const hpData = baseActor?.system?.attributes?.hp;
 
   if (!isGM && isSectionHidden) {
     return {
       current: "??",
       max: "??",
-      temp: hpData?.temp ? "??" : "0", 
-      tempMax: hpData?.tempmax ? "??" : "0", // Though likely not shown if main HP is ??
       elementKey: elementKey,
       isHiddenGM: false, // Player view, so this flag isn't relevant for element-hidden-to-players class here
-      increasedMax: false,
-      decreasedMax: false,
     };
   }
 
   return {
     current: hpData?.value ?? "0",
     max: hpData?.max ?? "0",
-    temp: hpData?.temp ?? "0",
-    tempMax: String(tempMax), // Ensure it's a string for template
     elementKey: elementKey,
     isHiddenGM: isGM && isSectionHidden,
-    increasedMax: tempMax > 0,
-    decreasedMax: tempMax < 0,
   };
 }
 
@@ -570,7 +574,9 @@ function _getActiveEffectsData(actor, hiddenElements, isGM) {
       id: effect.id,
       name: isEffectHiddenForPlayer ? "??" : effect.name,
       icon: isEffectHiddenForPlayer ? "" : effect.img,
-      // descriptionHTML: can be populated here if simple, or by adapter postRender if complex enrichment needed
+      // TODO inspect-statblock: Fix HTML content causing display issues  
+      // Strip HTML tags from description for tooltip data attributes to prevent rendering issues
+      descriptionHTML: isEffectHiddenForPlayer ? "" : (effect.description || "").replace(/<[^>]*>/g, ""),
       subText: isEffectHiddenForPlayer ? "" : subText, // Don't show subtext like duration if item is hidden to player
       elementKey: elementKey,
       isHiddenGM: effectIsHiddenByGM,
@@ -784,7 +790,10 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
       id: item.id,
       name: isFeatureHiddenForPlayer ? "??" : item.name,
       icon: isFeatureHiddenForPlayer ? "" : item.img,
-      descriptionHTML: item.system.description?.value || "", // Raw description for now
+      // TODO inspect-statblock: Fix HTML content causing display issues
+      // Strip HTML tags from description for tooltip data attributes to prevent rendering issues
+      // The ">" prefix on features like "Split" was likely caused by malformed HTML in descriptions
+      descriptionHTML: isFeatureHiddenForPlayer ? "" : (item.system.description?.value || "").replace(/<[^>]*>/g, ""),
       // subText: typically not used for passive features in this context
       elementKey: elementKey,
       isHiddenGM: featureIsHiddenByGM,
@@ -982,10 +991,34 @@ export const Dnd5eHandler = {
       actor.effects.filter(e => !e.disabled).forEach(effect => keys.add(`effect-${effect.id}`));
     }
 
-    // Add passive features
+    // TODO inspect-statblock: Fix inconsistent passive feature detection
+    // Use the SAME logic as _getPassiveFeaturesData to ensure consistency
+    // Add passive features - using modern activities system logic
     if (actor.items) {
-      actor.items.filter(item => item.type === "feat" && (item.system.activation?.type === "" || !item.system.activation?.type))
-        .forEach(item => keys.add(`feature-${item.id}`));
+      const passiveFeatureItems = actor.items.filter(item => {
+        if (item.type !== "feat") return false;
+        
+        // Check if this feature has any activities that require activation
+        // If it has no activities or all activities are passive, consider it a passive feature
+        if (item.system.activities && Object.keys(item.system.activities).length > 0) {
+          // Check if any activity requires activation (non-passive)
+          const hasActiveActivation = Object.values(item.system.activities).some(activity => 
+            activity.activation && activity.activation.type && activity.activation.type !== ""
+          );
+          return !hasActiveActivation; // Only include if no active activation found
+        }
+        
+        // Fallback for items without activities system or older D&D 5e versions
+        // Check the legacy activation property if activities don't exist
+        if (!item.system.activities && item.system.activation) {
+          return item.system.activation.type === "" || !item.system.activation.type;
+        }
+        
+        // If no activities and no legacy activation, assume it's passive
+        return true;
+      });
+      
+      passiveFeatureItems.forEach(item => keys.add(`feature-${item.id}`));
     }
 
     // Add defense tag keys from SIDS data if available
@@ -1020,10 +1053,33 @@ export const Dnd5eHandler = {
         break;
         
       case "section-passive-features":
+        // TODO inspect-statblock: Fix inconsistent passive feature detection
+        // Use the SAME logic as _getPassiveFeaturesData to ensure consistency
         if (actor.items) {
-          actor.items.filter(item => item.type === "feat" && 
-                            (item.system.activation?.type === "" || !item.system.activation?.type))
-            .forEach(item => itemKeys.add(`feature-${item.id}`));
+          const passiveFeatureItems = actor.items.filter(item => {
+            if (item.type !== "feat") return false;
+            
+            // Check if this feature has any activities that require activation
+            // If it has no activities or all activities are passive, consider it a passive feature
+            if (item.system.activities && Object.keys(item.system.activities).length > 0) {
+              // Check if any activity requires activation (non-passive)
+              const hasActiveActivation = Object.values(item.system.activities).some(activity => 
+                activity.activation && activity.activation.type && activity.activation.type !== ""
+              );
+              return !hasActiveActivation; // Only include if no active activation found
+            }
+            
+            // Fallback for items without activities system or older D&D 5e versions
+            // Check the legacy activation property if activities don't exist
+            if (!item.system.activities && item.system.activation) {
+              return item.system.activation.type === "" || !item.system.activation.type;
+            }
+            
+            // If no activities and no legacy activation, assume it's passive
+            return true;
+          });
+          
+          passiveFeatureItems.forEach(item => itemKeys.add(`feature-${item.id}`));
         }
         break;
         

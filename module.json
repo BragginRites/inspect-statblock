@@ -19,16 +19,19 @@
       "src/api/system-adapter-api.js",
       "src/core/system-registry.js",
       "src/core/renderer.js",
+      "src/core/settings-menu.js",
       "src/core/application.js",
       "systems/dnd5e/dnd5e-handler.js"
     ],
     "styles": [
       "styles/inspect-statblock-core.css",
+      "styles/defaults-config.css",
       "systems/dnd5e/styles/dnd5e-styles.css"
     ],
     "templates": [
       "templates/core_statblock_layout.hbs",
-      "templates/inspect-statblock-shell.hbs"
+      "templates/inspect-statblock-shell.hbs",
+      "templates/default-visibility-config.hbs"
     ],
     "languages": [
       {

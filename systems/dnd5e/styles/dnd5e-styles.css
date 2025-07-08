@@ -95,7 +95,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 10px; /* Space between current/max and temp HP */
     padding: 5px 10px;
     margin-top: 5px; /* Space from section above */
     border-top: 1px solid #383838;
@@ -108,19 +107,7 @@
     color: #ddd;
 }
 
-/* Health Section - Increased/Decreased Max HP Indicators */
-.inspect-statblock-app .current-health.increased-max {
-    color: #b388ff; /* Color for increased max HP */
-}
-.inspect-statblock-app .current-health.decreased-max {
-    color: #ffd700; /* Color for decreased max HP */
-}
-
-.inspect-statblock-app .temp-health {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #5c9dd1; /* Color for temporary HP */
-}
+/* Health Section - Removed temp HP styling since temp HP functionality was removed */
 
 /* Ability Scores - D&D 5e 6-column layout and styling */
 .inspect-statblock-app .ability-scores {

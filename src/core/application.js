@@ -91,8 +91,55 @@ class InspectStatblockApp extends Application {
         this.actor = actor;
         this.token = token;
         this.tokenId = token?.id;
-        this.hiddenElements = actor?.getFlag(MODULE_ID, 'hiddenElements') || {};
+        
+        // TODO inspect-statblock: Debug logging for auto-opening bug investigation
+        console.log(`${MODULE_ID} | [DEBUG] Creating InspectStatblockApp:`, {
+            actorId: actor?.id,
+            actorName: actor?.name,
+            tokenId: token?.id,
+            tokenName: token?.name,
+            stackTrace: new Error().stack?.split('\n').slice(1, 5).join('\n') // Get caller stack for tracking source
+        });
+        
+        // Determine the base actor for flag storage
+        // If token is linked (actorLink is true), use the base actor
+        // If token is not linked, use the token's actor instance
+        this.baseActor = this._getBaseActorForFlags(actor, token);
+        
+        this.hiddenElements = this.baseActor?.getFlag(MODULE_ID, 'hiddenElements') || {};
         this._handleActorUpdateBound = this._handleActorUpdate.bind(this);
+    }
+
+    /**
+     * Determines which actor to use for flag storage.
+     * Checks the flagStorageMode setting to determine whether to use shared (per-actor) 
+     * or individual (per-token) flag storage.
+     * @param {Actor} actor - The actor instance
+     * @param {Token} token - The token instance
+     * @returns {Actor} The actor to use for flag storage
+     * @private
+     */
+    _getBaseActorForFlags(actor, token) {
+        const flagStorageMode = game.settings.get(MODULE_ID, 'flagStorageMode');
+        
+        if (flagStorageMode === 'per-token') {
+            // Per-token mode: each token has its own flags, even if they share the same base actor
+            console.log(`${MODULE_ID} | Using token actor instance for flag storage (per-token mode).`);
+            return actor;
+        }
+        
+        // Per-actor mode (default): tokens sharing the same actorId share flags
+        if (token && token.document && token.document.actorId) {
+            const baseActor = game.actors.get(token.document.actorId);
+            if (baseActor) {
+                console.log(`${MODULE_ID} | Using base actor (${baseActor.name}) for flag storage (per-actor mode). Token linked: ${token.document.actorLink}`);
+                return baseActor;
+            }
+        }
+        
+        // Fallback to the actor instance (if no token or base actor not found)
+        console.log(`${MODULE_ID} | Using token actor instance for flag storage (fallback).`);
+        return actor;
     }
 
     static get defaultOptions() {
@@ -103,11 +150,36 @@ class InspectStatblockApp extends Application {
             width: 500,
             height: "1000",
             resizable: true,
-            title: "", // Minimal header
+            title: "", // Will be set dynamically in get title()
             dataset: {
                 "userIsGm": game.user.isGM
             }
         });
+    }
+
+    get title() {
+        if (!this.actor) return "Inspect Statblock";
+        
+        let displayedName = this.actor.name;
+        
+        // Check if the name should be hidden for the current user
+        if (!game.user.isGM && this.hiddenElements && this.hiddenElements['header-name']) {
+            displayedName = "??";
+        }
+        
+        let title = `Inspect Statblock: ${displayedName}`;
+        
+        // Add indicator if this token is sharing flags with a base actor
+        // For the shared indicator, show the base actor name only if the user is GM or if it's not hidden
+        if (this.baseActor && this.baseActor.id !== this.actor.id) {
+            let baseActorDisplayName = this.baseActor.name;
+            if (!game.user.isGM && this.hiddenElements && this.hiddenElements['header-name']) {
+                baseActorDisplayName = "??";
+            }
+            title += ` (Shared: ${baseActorDisplayName})`;
+        }
+        
+        return title;
     }
 
     _getHeaderButtons() {
@@ -161,16 +233,27 @@ class InspectStatblockApp extends Application {
             // Store systemHandler on instance for later use in _onToggleVisibility etc.
             this.systemHandler = systemHandler; 
 
-            let currentFlags = this.actor.getFlag(MODULE_ID, 'hiddenElements');
+            let currentFlags = this.baseActor.getFlag(MODULE_ID, 'hiddenElements');
             if (data.isGM && (!currentFlags || Object.keys(currentFlags).length === 0)) {
-                console.log(`${MODULE_ID} | Initializing default visibility flags for GM for actor: ${this.actor.name}`);
+                // TODO inspect-statblock: Debug logging for flag initialization
+                console.log(`${MODULE_ID} | [DEBUG] Initializing default visibility flags:`, {
+                    actorName: this.baseActor.name,
+                    tokenId: this.tokenId,
+                    currentFlags
+                });
+                
+                console.log(`${MODULE_ID} | Initializing default visibility flags for GM for actor: ${this.baseActor.name}`);
                 const sectionDefinitions = systemHandler.getSystemSectionDefinitions();
                 const newFlags = {};
+
+                // Get the visibility settings object instead of individual settings
+                const defaultVisibilitySettings = game.settings.get(MODULE_ID, 'defaultVisibilitySettings') || {};
 
                 for (const defKey in sectionDefinitions) {
                     const definition = sectionDefinitions[defKey];
                     if (definition.defaultShowSettingKey) {
-                        const showByDefault = game.settings.get(MODULE_ID, definition.defaultShowSettingKey);
+                        // Read from the object instead of individual settings
+                        const showByDefault = defaultVisibilitySettings[definition.defaultShowSettingKey] ?? true;
                         const isHidden = !showByDefault;
 
                         if (definition.type === 'single') {
@@ -186,7 +269,15 @@ class InspectStatblockApp extends Application {
                         }
                     }
                 }
-                await this.actor.setFlag(MODULE_ID, 'hiddenElements', newFlags);
+                
+                // TODO inspect-statblock: Debug logging for flag initialization completion
+                console.log(`${MODULE_ID} | [DEBUG] Setting initialized flags:`, {
+                    actorName: this.baseActor.name,
+                    tokenId: this.tokenId,
+                    newFlags
+                });
+                
+                await this.baseActor.setFlag(MODULE_ID, 'hiddenElements', newFlags);
                 this.hiddenElements = newFlags;
             } else {
                 this.hiddenElements = currentFlags || {};
@@ -224,24 +315,51 @@ class InspectStatblockApp extends Application {
     }
 
     _handleActorUpdate(actor, diff, options, userId) {
-        if (!this.actor || actor.id !== this.actor.id) {
+        // Check if this update affects our display actor or base actor
+        const isDisplayActorUpdate = this.actor && actor.id === this.actor.id;
+        const isBaseActorUpdate = this.baseActor && actor.id === this.baseActor.id;
+        
+        if (!isDisplayActorUpdate && !isBaseActorUpdate) {
             return;
         }
 
+        // TODO inspect-statblock: Debug logging for auto-opening bug investigation
+        console.log(`${MODULE_ID} | [DEBUG] Actor update received:`, {
+            actorId: actor.id,
+            actorName: actor.name,
+            diff: diff,
+            isDisplayActorUpdate,
+            isBaseActorUpdate,
+            windowTokenId: this.tokenId,
+            userId,
+            currentlyRendered: this.rendered
+        });
+
         let needsRender = false;
 
-        // Check for changes in our module's visibility flags
-        if (foundry.utils.hasProperty(diff, `flags.${MODULE_ID}.hiddenElements`)) {
+        // Check for changes in our module's visibility flags (only relevant for base actor)
+        if (isBaseActorUpdate && foundry.utils.hasProperty(diff, `flags.${MODULE_ID}.hiddenElements`)) {
             const newFlags = actor.getFlag(MODULE_ID, 'hiddenElements');
-            if (JSON.stringify(this.hiddenElements) !== JSON.stringify(newFlags)) {
-                console.log(`${MODULE_ID} | Visibility flags changed for ${actor.name}.`);
+            const flagsChanged = JSON.stringify(this.hiddenElements) !== JSON.stringify(newFlags);
+            
+            // TODO inspect-statblock: Debug logging for flag changes
+            console.log(`${MODULE_ID} | [DEBUG] Visibility flags update:`, {
+                actorName: actor.name,
+                flagsChanged,
+                oldFlags: this.hiddenElements,
+                newFlags,
+                windowTokenId: this.tokenId
+            });
+            
+            if (flagsChanged) {
+                console.log(`${MODULE_ID} | Visibility flags changed for base actor ${actor.name}.`);
                 this.hiddenElements = newFlags || {};
                 needsRender = true;
             }
         }
 
-        // Check for other substantive changes if not already flagged for render
-        if (!needsRender) {
+        // Check for other substantive changes if not already flagged for render (for display actor)
+        if (isDisplayActorUpdate && !needsRender) {
             const diffKeys = Object.keys(diff);
             if (diffKeys.length > 0) {
                 // Exclude updates that only change _stats (often related to actor vision/position, not displayed stats)
@@ -259,7 +377,28 @@ class InspectStatblockApp extends Application {
         }
 
         if (needsRender) {
-            console.log(`${MODULE_ID} | Re-rendering statblock for ${actor.name}.`);
+            // TODO inspect-statblock: CRITICAL BUG FIX for auto-opening statblocks
+            // 
+            // ROOT CAUSE: When user clicks hide/show all buttons, flags are updated on the base actor.
+            // This triggers updateActor hook for ALL InspectStatblockApp instances sharing that actor.
+            // Previously, render(true) was called on ALL instances, including ones that were never
+            // actually rendered/opened, causing "phantom" statblock windows to appear.
+            //
+            // FIX: Only call render(true) on windows that are already rendered (this.rendered === true).
+            // This prevents the module from auto-opening statblocks when new tokens are placed
+            // after using the hide/show all buttons on existing statblocks.
+            //
+            // BUG REPRODUCTION STEPS (now fixed):
+            // 1. Place Token A, open statblock, click Hide/Show All
+            // 2. Place Token B (same creature) 
+            // 3. Previously: Token B's statblock would auto-open
+            // 4. Now: Token B's statblock only opens if manually requested
+            if (!this.rendered) {
+                console.log(`${MODULE_ID} | [DEBUG] Skipping render for non-rendered window (tokenId: ${this.tokenId})`);
+                return;
+            }
+            
+            console.log(`${MODULE_ID} | Re-rendering statblock for ${this.actor.name}.`);
             this.render(true);
         }
     }
@@ -344,7 +483,7 @@ class InspectStatblockApp extends Application {
             return;
         }
 
-        const currentActorFlags = foundry.utils.deepClone(this.actor.getFlag(MODULE_ID, 'hiddenElements') || {});
+        const currentActorFlags = foundry.utils.deepClone(this.baseActor.getFlag(MODULE_ID, 'hiddenElements') || {});
         let updatedFlags = currentActorFlags;
 
         // Check if the clicked element is a defense category header
@@ -416,7 +555,7 @@ class InspectStatblockApp extends Application {
             }
         }
         
-        await this.actor.setFlag(MODULE_ID, 'hiddenElements', updatedFlags);
+        await this.baseActor.setFlag(MODULE_ID, 'hiddenElements', updatedFlags);
     }
 
     async _getInSectionItemKeys(sectionHeaderKey, systemHandler) {
@@ -458,11 +597,18 @@ class InspectStatblockApp extends Application {
         const systemHandler = await this._getSystemHandler();
         if (!systemHandler) return;
 
+        // TODO inspect-statblock: Debug logging for flag updates
+        console.log(`${MODULE_ID} | [DEBUG] Show All Elements called:`, {
+            actorName: this.baseActor?.name,
+            tokenId: this.tokenId,
+            currentFlags: this.hiddenElements
+        });
+
         const allKeys = await this._getAllToggleableKeys(systemHandler);
         const newHiddenElements = {};
         allKeys.forEach(key => newHiddenElements[key] = false); // false means visible
         
-        await this.actor.setFlag(MODULE_ID, 'hiddenElements', newHiddenElements);
+        await this.baseActor.setFlag(MODULE_ID, 'hiddenElements', newHiddenElements);
     }
 
     async _onHideAllElements() {
@@ -470,11 +616,18 @@ class InspectStatblockApp extends Application {
         const systemHandler = await this._getSystemHandler();
         if (!systemHandler) return;
 
+        // TODO inspect-statblock: Debug logging for flag updates
+        console.log(`${MODULE_ID} | [DEBUG] Hide All Elements called:`, {
+            actorName: this.baseActor?.name,
+            tokenId: this.tokenId,
+            currentFlags: this.hiddenElements
+        });
+
         const allKeys = await this._getAllToggleableKeys(systemHandler);
         const newHiddenElements = {};
         allKeys.forEach(key => newHiddenElements[key] = true); // true means hidden
         
-        await this.actor.setFlag(MODULE_ID, 'hiddenElements', newHiddenElements);
+        await this.baseActor.setFlag(MODULE_ID, 'hiddenElements', newHiddenElements);
     }
     
     async close(options = {}) {
@@ -496,15 +649,27 @@ export function _openInspectStatblockForTargetedToken() {
         return;
     }
 
+    // TODO inspect-statblock: Debug logging for manual statblock opening
+    console.log(`${MODULE_ID} | [DEBUG] Manual statblock opening requested:`, {
+        tokenId: token.id,
+        tokenName: token.name,
+        actorId: token.actor.id,
+        actorName: token.actor.name,
+        stackTrace: new Error().stack?.split('\n').slice(1, 3).join('\n') // Get caller for tracking source
+    });
+
     const existingWindow = Object.values(ui.windows).find(w => 
         w instanceof InspectStatblockApp &&
         w.tokenId === token.id
     );
 
     if (existingWindow) {
+        console.log(`${MODULE_ID} | [DEBUG] Closing existing window for token ${token.id}`);
         existingWindow.close();
         return;
     }
+    
+    console.log(`${MODULE_ID} | [DEBUG] Creating new statblock window for token ${token.id}`);
     new InspectStatblockApp(token.actor, token, { id: `${APP_ID}-${token.id}` }).render(true);
 }
 
