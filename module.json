@@ -15,8 +15,8 @@
     },
     "relationships": {},
     "esmodules": [
-      "src/core/sids-definition.js",
       "src/api/system-adapter-api.js",
+      "src/core/sids-definition.js",
       "src/core/system-registry.js",
       "src/core/renderer.js",
       "src/core/settings-menu.js",
