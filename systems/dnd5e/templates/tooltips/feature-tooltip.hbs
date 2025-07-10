@@ -10,14 +10,16 @@
                 <span class="title">{{ name }}</span>
                 {{#if subtitle}}
                     <span class="subtitle">{{{ subtitle }}}</span>
+                {{else if type.label}}
+                    <span class="subtitle">{{ type.label }}</span>
                 {{/if}}
             </div>
         </div>
         <div class="bottom">
-            {{#if type}}
-                <div class="item-type">
-                    <i class="fas fa-tag"></i>
-                    <span>{{ localize type.label }}</span>
+            {{#if rarity}}
+                <div class="rarity">
+                    <i class="fas fa-gem"></i>
+                    <span>{{ rarity }}</span>
                 </div>
             {{/if}}
             
@@ -28,6 +30,20 @@
                     <span class="separator">&sol;</span>
                     <span class="max">{{ uses.max }}</span>
                     <span>{{ localize "DND5E.Charges" }}</span>
+                </div>
+            {{/if}}
+            
+            {{#if price.value}}
+                <div class="price">
+                    <i class="currency {{ price.denomination }}"></i>
+                    <span>{{ price.value }}</span>
+                </div>
+            {{/if}}
+            
+            {{#if weight.value}}
+                <div class="weight">
+                    <i class="fas fa-weight-hanging"></i>
+                    <span>{{ weight.value }}</span>
                 </div>
             {{/if}}
         </div>
@@ -49,7 +65,7 @@
         </ul>
     {{/if}}
 
-    {{#if activities}}
+    {{#if activities.length}}
         <section class="activities">
             <h4>{{ localize "DND5E.Activities" }}</h4>
             {{#each activities}}
@@ -58,13 +74,27 @@
                         <strong>{{ this.name }}:</strong>
                     {{/if}}
                     {{#if this.activation.type}}
-                        <span class="activation">{{ localize this.activation.type }}</span>
+                        <span class="activation">{{ this.activation.type }}</span>
                     {{/if}}
                     {{#if this.range.value}}
                         <span class="range">{{ this.range.value }} {{ this.range.units }}</span>
                     {{/if}}
                 </div>
             {{/each}}
+        </section>
+    {{/if}}
+
+    {{#if requirements}}
+        <section class="requirements">
+            <h4>{{ localize "DND5E.Requirements" }}</h4>
+            <div class="requirement-text">{{{ requirements }}}</div>
+        </section>
+    {{/if}}
+
+    {{#if source}}
+        <section class="source">
+            <h4>{{ localize "DND5E.Source" }}</h4>
+            <div class="source-text">{{ source }}</div>
         </section>
     {{/if}}
 

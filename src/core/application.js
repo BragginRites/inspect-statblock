@@ -160,14 +160,19 @@ class InspectStatblockApp extends Application {
     get title() {
         if (!this.actor) return "Inspect Statblock";
         
-        let displayedName = this.actor.name;
+        // Use token name if available, otherwise use actor name (same logic as D&D 5e handler)
+        let displayedName = this.actor.name; // Default to actor's name
+        if (this.token && this.token.name && this.token.name !== this.actor.name) {
+            displayedName = this.token.name; // Use token's name if it exists and is different
+        }
         
         // Check if the name should be hidden for the current user
         if (!game.user.isGM && this.hiddenElements && this.hiddenElements['header-name']) {
             displayedName = "??";
         }
         
-        let title = `Inspect Statblock: ${displayedName}`;
+        // Just use the name directly, not "Inspect Statblock: name"
+        let title = displayedName;
         
         // Add indicator if this token is sharing flags with a base actor
         // For the shared indicator, show the base actor name only if the user is GM or if it's not hidden

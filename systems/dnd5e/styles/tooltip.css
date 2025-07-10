@@ -1,227 +1,66 @@
-/* Enhanced Tooltips for Inspect Statblock - D&D 5e */
+/* Inspect Statblock Tooltip Styles - Based on BG3 Module Pattern */
 
-/* Base tooltip styling - More specific selectors to avoid conflicts */
 :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip {
-    background-color: #1a1a1a !important;
-    color: #e6e6e6 !important;
-    border: 1px solid #444 !important;
-    border-radius: 6px;
-    max-width: 320px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    opacity: 1 !important;
-    backdrop-filter: none !important;
+    /* Base styling for inspect-statblock tooltips */
 }
 
-/* Ensure content is visible */
-:is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content {
-    background-color: transparent;
-    opacity: 1 !important;
+:is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .loading {
+    display: none !important;
 }
 
-/* Enhanced tooltip content - removed as it's now above */
-
-/* Header section */
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .header {
-    padding: 12px;
-    border-bottom: 1px solid #555;
-    background-color: transparent;
+:is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip:has(.loading) {
+    display: none !important;
 }
 
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .header .top {
+body[data-show-materials="false"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .spell-block .materials {
+    display: none;
+}
+
+/** Tooltip w/o Description **/
+body[data-light-tooltip="nodesc"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content > .description {
+    display: none;
+}
+
+body[data-light-tooltip="nodesc"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content > .pills {
+    margin-top: .5rem;
+}
+
+/** Tooltip Light **/
+body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip {
+    width: auto;
+}
+
+body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content > *:not(.header), 
+body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content > .header > *:not(.top), 
+body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .content > .header > .top > img {
+    display: none;
+}
+
+/** Locked Tooltip **/
+.locked-tooltip.dnd5e-tooltip.inspect-statblock-tooltip .content::after {
+    content: "Right-click to dismiss.";
     display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
-}
-
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .header .bottom {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    font-size: 0.85em;
-    color: #aaa;
-}
-
-/* Icons */
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .effect-icon,
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .feature-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    object-fit: cover;
-    border: 1px solid #555;
-}
-
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .effect-icon-fallback,
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .feature-icon-fallback {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    background: #2a2a2a;
-    border-radius: 4px;
-    color: #aaa;
-    font-size: 16px;
-}
-
-/* Name stacking */
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .name-stacked {
-    flex: 1;
-}
-
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .name-stacked .title {
-    display: block;
-    font-weight: bold;
-    font-size: 1.1em;
-    color: #e6e6e6 !important;
-    line-height: 1.2;
-}
-
-:is(#tooltip, .locked-tooltip).inspect-statblock-tooltip .name-stacked .subtitle {
-    display: block;
-    font-size: 0.9em;
-    color: #aaa !important;
-    line-height: 1.2;
-    margin-top: 2px;
-}
-
-/* Duration, source, charges, etc. */
-.inspect-statblock-tooltip .duration,
-.inspect-statblock-tooltip .source,
-.inspect-statblock-tooltip .charges,
-.inspect-statblock-tooltip .item-type {
-    display: flex;
     align-items: center;
     gap: 4px;
+    padding: 6px 0 0;
+    margin-bottom: -4px;
+    font-size: var(--font-size-10);
+    color: var(--color-text-dark-5);
 }
 
-.inspect-statblock-tooltip .duration i,
-.inspect-statblock-tooltip .source i,
-.inspect-statblock-tooltip .charges i,
-.inspect-statblock-tooltip .item-type i {
-    width: 12px;
-    text-align: center;
-    color: var(--color-text-secondary);
+.locked-tooltip.dnd5e-tooltip.inspect-statblock-tooltip {
+    cursor: move;
+    /* Allow tooltips to be positioned anywhere */
+    /* bottom: unset !important; */
 }
 
-/* Description section */
-.inspect-statblock-tooltip .description {
-    padding: 12px;
-    border-bottom: 1px solid var(--color-border-light);
-    font-size: 0.9em;
-    line-height: 1.4;
+:is(#tooltip, .locked-tooltip).no-wrap {
+    white-space: nowrap;
+    max-width: unset;
 }
 
-.inspect-statblock-tooltip .description:last-child {
-    border-bottom: none;
-}
-
-/* Property pills */
-.inspect-statblock-tooltip .pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 8px 12px;
-    margin: 0;
-    list-style: none;
-    border-bottom: 1px solid var(--color-border-light);
-}
-
-.inspect-statblock-tooltip .pills:last-child {
-    border-bottom: none;
-}
-
-.inspect-statblock-tooltip .pill {
-    background: var(--color-bg-alt);
-    border: 1px solid var(--color-border-light);
-    border-radius: 12px;
-    padding: 2px 8px;
-    font-size: 0.75em;
-    color: var(--color-text-secondary);
-}
-
-.inspect-statblock-tooltip .pill.transparent {
-    background: transparent;
-}
-
-/* Changes and activities sections */
-.inspect-statblock-tooltip .changes,
-.inspect-statblock-tooltip .activities {
-    padding: 12px;
-    border-bottom: 1px solid var(--color-border-light);
-}
-
-.inspect-statblock-tooltip .changes:last-child,
-.inspect-statblock-tooltip .activities:last-child {
-    border-bottom: none;
-}
-
-.inspect-statblock-tooltip .changes h4,
-.inspect-statblock-tooltip .activities h4 {
-    margin: 0 0 8px 0;
-    font-size: 0.9em;
-    font-weight: bold;
-    color: var(--color-text-primary);
-}
-
-.inspect-statblock-tooltip .effect-changes {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.inspect-statblock-tooltip .change-item,
-.inspect-statblock-tooltip .activity-item {
-    font-size: 0.85em;
-    line-height: 1.3;
-    margin-bottom: 4px;
-}
-
-.inspect-statblock-tooltip .change-item:last-child,
-.inspect-statblock-tooltip .activity-item:last-child {
-    margin-bottom: 0;
-}
-
-.inspect-statblock-tooltip .activity-item .activation,
-.inspect-statblock-tooltip .activity-item .range {
-    color: var(--color-text-secondary);
-    margin-left: 8px;
-}
-
-/* Control hints */
-.inspect-statblock-tooltip .control-hint {
-    padding: 8px 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.75em;
-    color: var(--color-text-secondary);
-    background: var(--color-bg-alt);
-    border-top: 1px solid var(--color-border-light);
-}
-
-.inspect-statblock-tooltip .control-hint img {
-    width: 12px;
-    height: 12px;
-    opacity: 0.7;
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-    :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip {
-        max-width: 280px;
-    }
-    
-    .inspect-statblock-tooltip .header .top {
-        gap: 8px;
-    }
-    
-    .inspect-statblock-tooltip .effect-icon,
-    .inspect-statblock-tooltip .feature-icon,
-    .inspect-statblock-tooltip .effect-icon-fallback,
-    .inspect-statblock-tooltip .feature-icon-fallback {
-        width: 28px;
-        height: 28px;
-    }
+/* Inspect Statblock specific tooltip content styling */
+.inspect-statblock-tooltip-content {
+    /* Add any specific styling for inspect-statblock tooltip content */
 } 

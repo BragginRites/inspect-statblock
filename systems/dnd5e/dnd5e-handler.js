@@ -716,7 +716,10 @@ function _getSingleDefenseCategoryItem(defenseValuesObjectOrArray, categoryName,
             if (!isTagHiddenForPlayer) rawTagStrings.push(gmTag.name);
             else rawTagStrings.push("??"); 
       });
+        // In individualPlaceholders mode: if there are NO defenses at all, show nothing (no placeholders)
+        // Only show placeholders for defenses that actually exist but are hidden
     } else if (placeholderMode === "persistentSinglePlaceholder") {
+        // Show all visible defenses
         allPotentialGmTags.forEach(gmTag => {
             const isTagHiddenForPlayer = _shouldHideElement(gmTag.elementKey, hiddenElements, false);
             if (!isTagHiddenForPlayer) {
@@ -729,30 +732,21 @@ function _getSingleDefenseCategoryItem(defenseValuesObjectOrArray, categoryName,
                 rawTagStrings.push(gmTag.name);
             }
         });
-        // Add persistent "??" if there were any potential tags originally, or if any are currently shown
-        if (allPotentialGmTags.length > 0) {
-            individualTagItems.push({
-                id: categoryElementKey + "-persistent-placeholder",
-                name: "??",
-                elementKey: categoryElementKey + "-persistent-placeholder", // Non-interactive key
-                isPlaceholder: true, // For template styling/logic
-                isHiddenGM: false, // Not relevant for GM styling, always visible to player in this mode
-            });
-            rawTagStrings.push("??"); // For tooltip
-        }
+        // ALWAYS add exactly one persistent "??" to keep it ambiguous
+        // This happens regardless of whether there are any defenses at all
+        individualTagItems.push({
+            id: categoryElementKey + "-persistent-placeholder",
+            name: "??",
+            elementKey: categoryElementKey + "-persistent-placeholder", // Non-interactive key
+            isPlaceholder: true, // For template styling/logic
+            isHiddenGM: false, // Not relevant for GM styling, always visible to player in this mode
+        });
+        rawTagStrings.push("??"); // For tooltip
     }
     
-    // If category is completely empty (no tags for either GM or player), still show it with ??
-    if (allPotentialGmTags.length === 0) {
-        individualTagItems.push({
-            id: categoryElementKey + "-empty-placeholder",
-            name: "??",
-            elementKey: categoryElementKey + "-empty-placeholder",
-            isPlaceholder: true,
-            isHiddenGM: false,
-        });
-        rawTagStrings.push("??");
-    }
+    // REMOVED: The problematic logic that added ?? even when no defenses exist
+    // This was causing empty categories to show ?? in individualPlaceholders mode
+    // Now empty categories will truly be empty for players in individualPlaceholders mode
   }
  
   // Category name is always its real name now, not "??"
@@ -841,18 +835,59 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
         console.log(`Inspect Statblock | DEBUG: Feature: ${item.name} (key: ${elementKey}), hiddenElements[elementKey]: ${hiddenElements[elementKey]}, calculated isHiddenGM: ${featureIsHiddenByGM}`);
     }
 
+    console.log(`${MODULE_ID} | 📋 Processing feature for tooltip data:`, item.name);
+    console.log(`${MODULE_ID} | - Feature UUID:`, item.uuid || `Actor.${actor.id}.Item.${item.id}`);
+    console.log(`${MODULE_ID} | - Feature type:`, item.type);
+    console.log(`${MODULE_ID} | - Feature system:`, item.system);
+    console.log(`${MODULE_ID} | - Feature activities:`, item.system.activities);
+
     featuresSection.items.push({
       id: item.id,
       name: isFeatureHiddenForPlayer ? "??" : item.name,
       icon: isFeatureHiddenForPlayer ? "" : item.img,
-      // TODO inspect-statblock: Fix HTML content causing display issues
-      // Strip HTML tags from description for tooltip data attributes to prevent rendering issues
-      // The ">" prefix on features like "Split" was likely caused by malformed HTML in descriptions
-      descriptionHTML: isFeatureHiddenForPlayer ? "" : (item.system.description?.value || "").replace(/<[^>]*>/g, ""),
+      // Enhanced: Keep full HTML for rich tooltips instead of stripping tags
+      descriptionHTML: isFeatureHiddenForPlayer ? "" : (item.system.description?.value || ""),
       // subText: typically not used for passive features in this context
       elementKey: elementKey,
       isHiddenGM: featureIsHiddenByGM,
       uuid: item.uuid || `Actor.${actor.id}.Item.${item.id}`,
+      // Enhanced tooltip data for Features/Items
+      enhancedTooltipData: isFeatureHiddenForPlayer ? null : {
+        name: item.name,
+        img: item.img,
+        type: {
+          value: item.type,
+          label: CONFIG.Item?.typeLabels?.[item.type] || item.type
+        },
+        subtitle: _getItemSubtitle(item),
+        description: {
+          value: item.system.description?.value || ""
+        },
+        uses: item.system.uses ? {
+          value: item.system.uses.value || 0,
+          max: item.system.uses.max || 0,
+          per: item.system.uses.per || ""
+        } : null,
+        properties: _getItemProperties(item),
+        activities: item.system.activities ? Object.values(item.system.activities).map(activity => ({
+          name: activity.name,
+          activation: activity.activation,
+          range: activity.range,
+          target: activity.target,
+          damage: activity.damage,
+          save: activity.save
+        })) : [],
+        rarity: item.system.rarity,
+        source: item.system.source?.book || item.system.source?.custom || "",
+        requirements: item.system.requirements || "",
+        price: item.system.price ? {
+          value: item.system.price.value || 0,
+          denomination: item.system.price.denomination || "gp"
+        } : null,
+        weight: item.system.weight ? {
+          value: item.system.weight || 0
+        } : null
+      },
       nativeTooltipText: isFeatureHiddenForPlayer ? "" : item.name,
     });
   }
@@ -863,6 +898,84 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
   if (featuresSection.items.length === 0) featuresSection.isEmpty = true; 
 
   return featuresSection;
+}
+
+/**
+ * Helper function to get item subtitle (type/subtype information)
+ * @param {Item} item - The D&D 5e item
+ * @returns {string} Formatted subtitle
+ * @private
+ */
+function _getItemSubtitle(item) {
+  const parts = [];
+  
+  // Add type label
+  const typeLabel = CONFIG.Item?.typeLabels?.[item.type] || item.type;
+  if (typeLabel) parts.push(typeLabel);
+  
+  // Add subtype if available
+  if (item.system.type?.value) {
+    const subtypeConfig = CONFIG.DND5E?.[`${item.type}Types`]?.[item.system.type.value];
+    if (subtypeConfig) {
+      parts.push(typeof subtypeConfig === 'string' ? subtypeConfig : subtypeConfig.label);
+    } else {
+      parts.push(item.system.type.value);
+    }
+  }
+  
+  // Add rarity for equipment
+  if (item.system.rarity && ['weapon', 'equipment', 'consumable', 'tool', 'loot'].includes(item.type)) {
+    const rarityLabel = CONFIG.DND5E?.itemRarity?.[item.system.rarity] || item.system.rarity;
+    parts.push(rarityLabel);
+  }
+  
+  return parts.join(' • ');
+}
+
+/**
+ * Helper function to get item properties as localized strings
+ * @param {Item} item - The D&D 5e item
+ * @returns {string[]} Array of property labels
+ * @private
+ */
+function _getItemProperties(item) {
+  const properties = [];
+  
+  // Handle different item types
+  if (item.type === 'weapon' && item.system.properties) {
+    for (const [key, active] of Object.entries(item.system.properties)) {
+      if (active) {
+        const label = CONFIG.DND5E?.weaponProperties?.[key]?.label || key;
+        properties.push(game.i18n.localize(label));
+      }
+    }
+  } else if (item.type === 'equipment' && item.system.properties) {
+    for (const [key, active] of Object.entries(item.system.properties)) {
+      if (active) {
+        const label = CONFIG.DND5E?.equipmentProperties?.[key]?.label || key;
+        properties.push(game.i18n.localize(label));
+      }
+    }
+  } else if (item.type === 'spell') {
+    // Add spell-specific properties
+    if (item.system.level) {
+      const levelLabel = item.system.level === 0 ? 
+        game.i18n.localize("DND5E.SpellCantrip") : 
+        game.i18n.format("DND5E.SpellLevel", {level: item.system.level});
+      properties.push(levelLabel);
+    }
+    
+    if (item.system.school) {
+      const schoolLabel = CONFIG.DND5E?.spellSchools?.[item.system.school]?.label || item.system.school;
+      properties.push(game.i18n.localize(schoolLabel));
+    }
+    
+    // Add ritual, concentration if applicable
+    if (item.system.properties?.ritual) properties.push(game.i18n.localize("DND5E.Ritual"));
+    if (item.system.properties?.concentration) properties.push(game.i18n.localize("DND5E.Concentration"));
+  }
+  
+  return properties;
 }
 
 /**

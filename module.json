@@ -1,7 +1,7 @@
 {
     "id": "inspect-statblock",
-    "title": "Inspect Statblock (Core)",
-    "description": "A standalone module to inspect actor statblocks, supporting multiple game systems via internal handlers.",
+    "title": "Inspect Statblock",
+    "description": "A standalone module to inspect actor statblocks, supporting dnd5e via internal handlers.",
     "authors": [
       {
         "name": "BragginRites",
@@ -35,7 +35,8 @@
       "templates/inspect-statblock-shell.hbs",
       "templates/default-visibility-config.hbs",
       "systems/dnd5e/templates/tooltips/effect-tooltip.hbs",
-      "systems/dnd5e/templates/tooltips/feature-tooltip.hbs"
+      "systems/dnd5e/templates/tooltips/feature-tooltip.hbs",
+      "systems/dnd5e/templates/tooltips/item-tooltip.hbs"
     ],
     "languages": [
       {

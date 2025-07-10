@@ -1,9 +1,3 @@
-/**
- * @file D&D 5e Tooltip Manager for Inspect Statblock
- * This file manages enhanced tooltips for active effects and passive features
- * in the inspect-statblock module, providing BG3-inspired rich tooltip functionality.
- */
-
 const MODULE_ID = 'inspect-statblock';
 
 /**
@@ -12,237 +6,293 @@ const MODULE_ID = 'inspect-statblock';
 export class Dnd5eTooltipManager {
     constructor() {
         this.initialized = false;
-        this.originalTemplates = new Map();
+        this.savedMethods = {};
+        this._init();
+    }
+
+    _init() {       
+        game.dnd5e.dataModels.ItemDataModel.ITEM_TOOLTIP_TEMPLATE = 
+            `modules/${MODULE_ID}/systems/dnd5e/templates/tooltips/item-tooltip.hbs`;
+        
+        // Override richTooltip method with context detection (v4.x style)
+        this._overrideItemTooltip();
+        
+        // Override ActiveEffect tooltip if available
+        this._overrideActiveEffectTooltip();
+        
+        this._overrideDismissLockedTooltips();
+        
+        this._setupBodyEventHandlers();
+        
+        this.initialized = true;
+    }
+
+    _overrideItemTooltip() {
+        // Save original method
+        this.savedMethods.itemRichTooltip = CONFIG.Item.documentClass.prototype.richTooltip;
+        
+        // Override with context detection - use original tooltip but add our class
+        CONFIG.Item.documentClass.prototype.richTooltip = async function(enrichmentOptions = {}) {
+            const manager = game.modules.get(MODULE_ID)?.api?.tooltipManager;
+            
+            if (manager && manager._isFromInspectStatblock(this)) {
+                // Use original tooltip but add our class for inspect-statblock tooltips
+                try {
+                    const originalTooltip = await manager.savedMethods.itemRichTooltip.call(this, enrichmentOptions);
+                    
+                    // Just add our class to the original tooltip
+                    return {
+                        content: originalTooltip.content,
+                        classes: [...(originalTooltip.classes || []), "inspect-statblock-tooltip"]
+                    };
+                } catch (error) {
+                    console.error(`${MODULE_ID} | Error rendering enhanced tooltip:`, error);
+                    // Fallback to original
+                    return manager.savedMethods.itemRichTooltip.call(this, enrichmentOptions);
+                }
+            }
+            
+            // Use original for non-inspect-statblock tooltips
+            return manager.savedMethods.itemRichTooltip.call(this, enrichmentOptions);
+        };
+    }
+
+    _overrideActiveEffectTooltip() {
+        // Check if ActiveEffect has richTooltip method
+        if (CONFIG.ActiveEffect?.documentClass?.prototype?.richTooltip) {
+            this.savedMethods.effectRichTooltip = CONFIG.ActiveEffect.documentClass.prototype.richTooltip;
+            
+            CONFIG.ActiveEffect.documentClass.prototype.richTooltip = async function(enrichmentOptions = {}) {
+                const manager = game.modules.get(MODULE_ID)?.api?.tooltipManager;
+                
+                if (manager && manager._isFromInspectStatblock(this)) {
+                    // Use enhanced template for inspect-statblock tooltips
+                    try {
+                        const data = {
+                            effect: {
+                                name: this.name,
+                                img: this.icon,
+                                description: this.description || this.name,
+                                duration: this.duration,
+                                origin: this.origin,
+                                changes: this.changes
+                            },
+                            controlHints: true,
+                            isInspectStatblock: true,
+                            config: CONFIG.DND5E
+                        };
+                        
+                        const content = await renderTemplate(
+                            `modules/${MODULE_ID}/systems/dnd5e/templates/tooltips/effect-tooltip.hbs`, 
+                            data
+                        );
+                        
+                        return {
+                            content,
+                            classes: ["dnd5e2", "dnd5e-tooltip", "inspect-statblock-tooltip"]
+                        };
+        } catch (error) {
+                        console.error(`${MODULE_ID} | Error rendering enhanced effect tooltip:`, error);
+                        // Fallback to original
+                        return manager.savedMethods.effectRichTooltip.call(this, enrichmentOptions);
+                    }
+                }
+                
+                // Use original for non-inspect-statblock tooltips
+                return manager.savedMethods.effectRichTooltip.call(this, enrichmentOptions);
+            };
+        }
+    }
+
+    _overrideDismissLockedTooltips() {
+        const oldDismiss = TooltipManager.prototype.dismissLockedTooltips;
+        TooltipManager.prototype.dismissLockedTooltips = function() {
+            if(!this.tooltip.classList.contains('inspect-statblock-tooltip')) {
+                oldDismiss.bind(this)();
+            }
+            // If it contains inspect-statblock-tooltip, do nothing (don't dismiss)
+        };
+    }
+
+    _setupBodyEventHandlers() {
+        $('body').on('mousedown', '.locked-tooltip.inspect-statblock-tooltip', this._handleMouseDown.bind(this));
+        
+        $('body').on('contextmenu', '.locked-tooltip.inspect-statblock-tooltip', (e) => {
+            e.preventDefault();
+            $(e.currentTarget).fadeOut(200, () => {
+                $(e.currentTarget).remove();
+            });
+            return false;
+        });
+
+        // Middle-click to pin - add to regular tooltips
+        $('body').on('mousedown', '.dnd5e-tooltip.inspect-statblock-tooltip:not(.locked-tooltip)', (e) => {
+            if (e.which === 2) { // Middle click
+                e.preventDefault();
+                e.stopPropagation();
+                this._pinTooltip($(e.currentTarget));
+            }
+        });
+    }
+
+    _pinTooltip($tooltipContent) {
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] === PINNING TOOLTIP DEBUG START ===`);
+        
+        // Get the current tooltip wrapper
+        const $currentWrapper = $tooltipContent.closest('#tooltip');
+        if (!$currentWrapper.length) {
+            console.log(`${MODULE_ID} | [TOOLTIP DEBUG] No tooltip wrapper found`);
+            return;
+        }
+
+        // EXTENSIVE DEBUGGING - let's see what's happening
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Current wrapper element:`, $currentWrapper[0]);
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Current wrapper CSS:`, $currentWrapper.css(['position', 'left', 'top', 'bottom', 'right', 'transform', 'margin']));
+        
+        // Store current position BEFORE cloning
+        const currentPosition = $currentWrapper.offset();
+        const currentCSS = $currentWrapper.css(['position', 'left', 'top', 'bottom', 'right', 'transform', 'margin-top', 'margin-left']);
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Current position via offset():`, currentPosition);
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Current wrapper computed CSS:`, currentCSS);
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Viewport position:`, $currentWrapper.position());
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Window scroll:`, { scrollTop: $(window).scrollTop(), scrollLeft: $(window).scrollLeft() });
+        
+        // Clone the tooltip wrapper
+        const $clonedWrapper = $currentWrapper.clone(true, true);
+        
+        // Modify the clone to make it a locked tooltip
+        $clonedWrapper.removeAttr('id');
+        $clonedWrapper.addClass('locked-tooltip');
+        $clonedWrapper.attr('data-locked', 'true');
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Cloned wrapper classes:`, $clonedWrapper.attr('class'));
+        
+        // CRITICAL: Clear ALL positioning styles first, then set our own
+        $clonedWrapper.css({
+            position: '',
+            left: '',
+            top: '',
+            bottom: '',
+            right: '',
+            transform: '',
+            'margin-top': '',
+            'margin-left': '',
+            'margin-bottom': '',
+            'margin-right': ''
+        });
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] After clearing styles:`, $clonedWrapper.css(['position', 'left', 'top', 'bottom', 'right', 'transform', 'margin']));
+        
+        // Now set the position to match the current position
+        $clonedWrapper.css({
+            position: 'fixed',
+            left: currentPosition.left + 'px',
+            top: currentPosition.top + 'px',
+            zIndex: 1000
+        });
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] After setting position:`, $clonedWrapper.css(['position', 'left', 'top', 'bottom', 'right', 'transform', 'margin']));
+        
+        // Append to body
+        $('body').append($clonedWrapper);
+        
+        // Check the final position after appending
+        setTimeout(() => {
+            const finalPosition = $clonedWrapper.offset();
+            const finalCSS = $clonedWrapper.css(['position', 'left', 'top', 'bottom', 'right', 'transform', 'margin']);
+            console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Final position after appending:`, finalPosition);
+            console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Final CSS after appending:`, finalCSS);
+            console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Position difference:`, {
+                leftDiff: finalPosition.left - currentPosition.left,
+                topDiff: finalPosition.top - currentPosition.top
+            });
+        }, 100);
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] === PINNING TOOLTIP DEBUG END ===`);
+    }
+
+    _handleMouseDown(e) {
+        if (e.which !== 1) return; // Only left click for dragging
+        
+            e.preventDefault();
+            const tooltip = {};
+            tooltip.pageX0 = e.pageX;
+            tooltip.pageY0 = e.pageY;
+        tooltip.elem = e.currentTarget;
+        tooltip.offset0 = $(e.currentTarget).offset();
+            tooltip.moved = false;
+
+        const handleDragging = (e) => {
+                e.preventDefault();
+                const left = tooltip.offset0.left + (e.pageX - tooltip.pageX0);
+                const top = tooltip.offset0.top + (e.pageY - tooltip.pageY0);
+                if (!tooltip.moved) {
+                    tooltip.elem.style.removeProperty('bottom');
+                    tooltip.moved = true;
+                }
+                $(tooltip.elem).offset({ top: top, left: left });
+        };
+
+        const handleMouseUp = (e) => {
+                e.preventDefault();
+            $(document)
+                .off('mousemove.tooltip-drag')
+                .off('mouseup.tooltip-drag');
+        };
+
+        $(document)
+            .on('mouseup.tooltip-drag', handleMouseUp)
+            .on('mousemove.tooltip-drag', handleDragging);
+    }
+
+    _isFromInspectStatblock(document) {
+        // Check if the document's actor is currently being displayed in an inspect-statblock
+        if (!document.actor) return false;
+        
+        // Look for inspect-statblock applications that contain this actor
+        const inspectApps = Object.values(ui.windows).filter(app => 
+            app.constructor.name === 'InspectStatblockApp' && app.actor?.id === document.actor.id
+        );
+        
+        return inspectApps.length > 0;
     }
 
     /**
      * Initialize the tooltip manager
      */
     static initialize() {
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Dnd5eTooltipManager.initialize() called.`);
         if (!game.system || game.system.id !== 'dnd5e') {
-            console.warn(`${MODULE_ID} | Tooltip Manager: Not a D&D 5e system, skipping tooltip enhancements.`);
+            console.log(`${MODULE_ID} | [TOOLTIP DEBUG] System is not dnd5e. Aborting initialization.`);
             return;
         }
 
-        console.log(`${MODULE_ID} | Starting tooltip manager initialization...`);
         const manager = new Dnd5eTooltipManager();
-        manager._setupHooks();
-        manager._registerTemplateOverrides();
-        manager.initialized = true;
         
-        console.log(`${MODULE_ID} | D&D 5e Tooltip Manager initialized successfully.`);
-        console.log(`${MODULE_ID} | Current active modules:`, game.modules.filter(m => m.active).map(m => m.id));
-    }
-
-    /**
-     * Set up Foundry hooks for tooltip functionality
-     * @private
-     */
-    _setupHooks() {
-        // Hook for when the system is ready and we can override templates
-        Hooks.once('ready', () => {
-            this._applyTemplateOverrides();
-        });
-
-        // Hook for rendering tooltips (if we need custom processing)
-        Hooks.on('renderTooltip', (tooltip, html, data) => {
-            console.log(`${MODULE_ID} | 🔍 TOOLTIP RENDER HOOK TRIGGERED:`);
-            console.log(`${MODULE_ID} | - Tooltip object:`, tooltip);
-            console.log(`${MODULE_ID} | - HTML element:`, html);
-            console.log(`${MODULE_ID} | - Data:`, data);
-            console.log(`${MODULE_ID} | - HTML classes:`, html.attr('class'));
-            console.log(`${MODULE_ID} | - UUID in data:`, data?.uuid);
-            console.log(`${MODULE_ID} | - HTML content preview:`, html.html().substring(0, 200));
-            this._onRenderTooltip(tooltip, html, data);
-        });
-    }
-
-    /**
-     * Register our custom tooltip templates with Foundry
-     * @private
-     */
-    _registerTemplateOverrides() {
-        // Store original templates before overriding
-        if (game.dnd5e?.dataModels?.ItemDataModel?.ITEM_TOOLTIP_TEMPLATE) {
-            this.originalTemplates.set('item', game.dnd5e.dataModels.ItemDataModel.ITEM_TOOLTIP_TEMPLATE);
+        // Expose manager globally for access from overridden methods
+        if (!game.modules.get(MODULE_ID).api) {
+            game.modules.get(MODULE_ID).api = {};
         }
-
-        // We'll set up the actual overrides in _applyTemplateOverrides once templates are loaded
+        game.modules.get(MODULE_ID).api.tooltipManager = manager;
+        
+        console.log(`${MODULE_ID} | [TOOLTIP DEBUG] Dnd5eTooltipManager initialized successfully.`);
     }
 
     /**
-     * Apply template overrides once Foundry is fully ready
-     * @private
+     * Restore original methods (for cleanup if needed)
      */
-    _applyTemplateOverrides() {
+    restoreOriginalMethods() {
         try {
-            console.log(`${MODULE_ID} | 🔧 Applying template overrides...`);
-            console.log(`${MODULE_ID} | - game.dnd5e exists:`, !!game.dnd5e);
-            console.log(`${MODULE_ID} | - dataModels exists:`, !!game.dnd5e?.dataModels);
-            console.log(`${MODULE_ID} | - ItemDataModel exists:`, !!game.dnd5e?.dataModels?.ItemDataModel);
-            
-            // Store original template before override
-            if (game.dnd5e?.dataModels?.ItemDataModel?.ITEM_TOOLTIP_TEMPLATE) {
-                const originalTemplate = game.dnd5e.dataModels.ItemDataModel.ITEM_TOOLTIP_TEMPLATE;
-                this.originalTemplates.set('item', originalTemplate);
-                console.log(`${MODULE_ID} | - Original item template stored:`, originalTemplate);
+            if (this.savedMethods.itemRichTooltip) {
+                CONFIG.Item.documentClass.prototype.richTooltip = this.savedMethods.itemRichTooltip;
             }
             
-            // Override item tooltip template for features
-            if (game.dnd5e?.dataModels?.ItemDataModel) {
-                const newTemplate = `modules/${MODULE_ID}/systems/dnd5e/templates/tooltips/feature-tooltip.hbs`;
-                game.dnd5e.dataModels.ItemDataModel.ITEM_TOOLTIP_TEMPLATE = newTemplate;
-                console.log(`${MODULE_ID} | ✅ Overrode D&D 5e item tooltip template to:`, newTemplate);
-            } else {
-                console.warn(`${MODULE_ID} | ❌ Could not override item tooltip template - ItemDataModel not available`);
-            }
-
-            // Check for Active Effect tooltip templates
-            console.log(`${MODULE_ID} | - Checking ActiveEffect template options...`);
-            console.log(`${MODULE_ID} | - CONFIG.ActiveEffect:`, CONFIG.ActiveEffect);
-            
-            // Note: ActiveEffect tooltips are handled differently in Foundry
-            // We'll handle those through the renderTooltip hook or by modifying the effect data preparation
-
-        } catch (error) {
-            console.error(`${MODULE_ID} | ❌ Error applying tooltip template overrides:`, error);
-        }
-    }
-
-    /**
-     * Handle tooltip rendering for custom processing
-     * @private
-     */
-    _onRenderTooltip(tooltip, html, data) {
-        console.log(`${MODULE_ID} | 📝 Processing tooltip render...`);
-        
-        // Check if this is our tooltip or someone else's
-        const currentClasses = html.attr('class') || '';
-        const hasInspectClass = currentClasses.includes('inspect-statblock-tooltip');
-        const hasDnd5eClass = currentClasses.includes('dnd5e-tooltip');
-        const isBG3Tooltip = currentClasses.includes('bg3-tooltip');
-        
-        console.log(`${MODULE_ID} | - Has inspect class: ${hasInspectClass}`);
-        console.log(`${MODULE_ID} | - Has dnd5e class: ${hasDnd5eClass}`);
-        console.log(`${MODULE_ID} | - Is BG3 tooltip: ${isBG3Tooltip}`);
-        console.log(`${MODULE_ID} | - Current classes: ${currentClasses}`);
-        
-        // ONLY process tooltips that already have our inspect-statblock-tooltip class
-        // This prevents us from affecting other modules like BG3 hotbar
-        if (!hasInspectClass) {
-            console.log(`${MODULE_ID} | ⚠️ Skipping tooltip - not ours (no inspect-statblock-tooltip class)`);
-            return;
-        }
-        
-        console.log(`${MODULE_ID} | ✅ Processing our tooltip...`);
-
-        // Handle Active Effects specifically since they don't use item templates
-        if (data?.uuid && data.uuid.includes('ActiveEffect')) {
-            console.log(`${MODULE_ID} | 🎭 Detected Active Effect tooltip: ${data.uuid}`);
-            this._enhanceActiveEffectTooltip(html, data);
-        } else if (data?.uuid) {
-            console.log(`${MODULE_ID} | 📋 Detected Item tooltip: ${data.uuid}`);
-        }
-
-        // Handle any post-render processing here if needed
-        this._enhanceTooltipContent(html, data);
-    }
-
-    /**
-     * Enhance tooltip content after rendering
-     * @private
-     */
-    _enhanceTooltipContent(html, data) {
-        // Add loading states, enhance content, etc.
-        // This is where we can add BG3-style enhancements
-        
-        // For now, just ensure our CSS classes are applied
-        if (data?.uuid) {
-            html.addClass('inspect-statblock-enhanced-tooltip');
-        }
-    }
-
-    /**
-     * Enhance Active Effect tooltips specifically
-     * @private
-     */
-    _enhanceActiveEffectTooltip(html, data) {
-        console.log(`${MODULE_ID} | 🎭 Enhancing Active Effect tooltip...`);
-        console.log(`${MODULE_ID} | - Data UUID:`, data.uuid);
-        
-        // Active effects need special handling since they don't use the item template system
-        try {
-            const effect = fromUuidSync(data.uuid);
-            console.log(`${MODULE_ID} | - Found effect:`, effect);
-            console.log(`${MODULE_ID} | - Effect document name:`, effect?.documentName);
-            
-            if (effect && effect.documentName === 'ActiveEffect') {
-                console.log(`${MODULE_ID} | ✅ Valid Active Effect - rendering enhanced tooltip`);
-                // Replace the content with our enhanced template
-                this._renderEnhancedEffectTooltip(html, effect);
-            } else {
-                console.warn(`${MODULE_ID} | ⚠️ Not a valid Active Effect:`, effect);
+            if (this.savedMethods.effectRichTooltip) {
+                CONFIG.ActiveEffect.documentClass.prototype.richTooltip = this.savedMethods.effectRichTooltip;
             }
         } catch (error) {
-            console.error(`${MODULE_ID} | ❌ Error enhancing Active Effect tooltip:`, error);
-        }
-    }
-
-    /**
-     * Render enhanced effect tooltip content
-     * @private
-     */
-    async _renderEnhancedEffectTooltip(html, effect) {
-        try {
-            console.log(`${MODULE_ID} | 🎨 Rendering enhanced effect tooltip for:`, effect.name);
-            
-            // Prepare data for our effect template
-            const templateData = {
-                name: effect.name,
-                img: effect.icon,
-                description: effect.description,
-                duration: effect.duration,
-                origin: effect.origin,
-                changes: effect.changes,
-                flags: effect.flags,
-                controlHints: true
-            };
-
-            console.log(`${MODULE_ID} | - Template data prepared:`, templateData);
-
-            // Render our custom template
-            const templatePath = `modules/${MODULE_ID}/systems/dnd5e/templates/tooltips/effect-tooltip.hbs`;
-            console.log(`${MODULE_ID} | - Rendering template:`, templatePath);
-            
-            const content = await renderTemplate(templatePath, templateData);
-            
-            console.log(`${MODULE_ID} | - Rendered content length:`, content.length);
-            console.log(`${MODULE_ID} | - Content preview:`, content.substring(0, 200));
-
-            // Replace the tooltip content
-            html.html(content);
-            html.addClass('inspect-statblock-tooltip effect-tooltip');
-            
-            console.log(`${MODULE_ID} | ✅ Enhanced effect tooltip rendered successfully`);
-            
-        } catch (error) {
-            console.error(`${MODULE_ID} | ❌ Error rendering enhanced effect tooltip:`, error);
-            console.error(`${MODULE_ID} | - Effect:`, effect);
-            console.error(`${MODULE_ID} | - HTML element:`, html);
-        }
-    }
-
-    /**
-     * Restore original templates (for cleanup if needed)
-     */
-    restoreOriginalTemplates() {
-        try {
-            if (this.originalTemplates.has('item') && game.dnd5e?.dataModels?.ItemDataModel) {
-                game.dnd5e.dataModels.ItemDataModel.ITEM_TOOLTIP_TEMPLATE = this.originalTemplates.get('item');
-            }
-            console.log(`${MODULE_ID} | Restored original tooltip templates.`);
-        } catch (error) {
-            console.error(`${MODULE_ID} | Error restoring original templates:`, error);
+            console.error(`${MODULE_ID} | Error restoring original tooltip methods:`, error);
         }
     }
 }
