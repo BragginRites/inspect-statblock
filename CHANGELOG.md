@@ -1,4 +1,10 @@
-## [1.0.0] - 2025-05-19
+## [1.0.1] - 2025-07-10
+### Fixed
+- **Visibility Defaults**: Fixed an issue where the default visibility settings were not being applied correctly. Now visibilities for new base actors are set when they are created on the canvas rather than when first inspected. (Related issue: #10)
+
+
+
+## [1.0.0] - 2025-07-10
 Complete rewrite of the module to support multiple systems via a new System Adapter API.
 
 ## [0.4.2] - 2025-05-16

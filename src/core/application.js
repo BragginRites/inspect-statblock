@@ -238,55 +238,9 @@ class InspectStatblockApp extends Application {
             // Store systemHandler on instance for later use in _onToggleVisibility etc.
             this.systemHandler = systemHandler; 
 
+            // Get existing visibility flags (now initialized by preCreateToken hook)
             let currentFlags = this.baseActor.getFlag(MODULE_ID, 'hiddenElements');
-            if (data.isGM && (!currentFlags || Object.keys(currentFlags).length === 0)) {
-                // TODO inspect-statblock: Debug logging for flag initialization
-                console.log(`${MODULE_ID} | [DEBUG] Initializing default visibility flags:`, {
-                    actorName: this.baseActor.name,
-                    tokenId: this.tokenId,
-                    currentFlags
-                });
-                
-                console.log(`${MODULE_ID} | Initializing default visibility flags for GM for actor: ${this.baseActor.name}`);
-                const sectionDefinitions = systemHandler.getSystemSectionDefinitions();
-                const newFlags = {};
-
-                // Get the visibility settings object instead of individual settings
-                const defaultVisibilitySettings = game.settings.get(MODULE_ID, 'defaultVisibilitySettings') || {};
-
-                for (const defKey in sectionDefinitions) {
-                    const definition = sectionDefinitions[defKey];
-                    if (definition.defaultShowSettingKey) {
-                        // Read from the object instead of individual settings
-                        const showByDefault = defaultVisibilitySettings[definition.defaultShowSettingKey] ?? true;
-                        const isHidden = !showByDefault;
-
-                        if (definition.type === 'single') {
-                            newFlags[definition.keyPattern] = isHidden;
-                        } else if (definition.type === 'group') {
-                            if (definition.keyPattern === 'ability-') {
-                                // Delegate to system handler for ability keys
-                                const abilityKeys = systemHandler.getDefaultAbilityKeys?.() || [];
-                                abilityKeys.forEach(abilKey => {
-                                    newFlags[`ability-${abilKey}`] = isHidden;
-                                });
-                            }
-                        }
-                    }
-                }
-                
-                // TODO inspect-statblock: Debug logging for flag initialization completion
-                console.log(`${MODULE_ID} | [DEBUG] Setting initialized flags:`, {
-                    actorName: this.baseActor.name,
-                    tokenId: this.tokenId,
-                    newFlags
-                });
-                
-                await this.baseActor.setFlag(MODULE_ID, 'hiddenElements', newFlags);
-                this.hiddenElements = newFlags;
-            } else {
-                this.hiddenElements = currentFlags || {};
-            }
+            this.hiddenElements = currentFlags || {};
 
             const sidsData = await systemHandler.getStandardizedActorData(this.actor, this.token, this.hiddenElements, data.isGM);
             
@@ -752,10 +706,323 @@ Hooks.once('init', async function() {
     });
 });
 
+// Initialize default visibility flags when tokens are created
+Hooks.on('preCreateToken', async function(document, data, options, userId) {
+    console.log(`${MODULE_ID} | [DEBUG] preCreateToken hook fired for token:`, {
+        tokenName: data.name,
+        actorId: data.actorId,
+        userId: userId
+    });
+    
+    if (!data.actorId) {
+        console.log(`${MODULE_ID} | [DEBUG] Token has no associated actor, skipping default flag initialization`);
+        return;
+    }
+    
+    const actor = game.actors.get(data.actorId);
+    if (!actor) {
+        console.log(`${MODULE_ID} | [DEBUG] Could not find actor with ID ${data.actorId}, skipping default flag initialization`);
+        return;
+    }
+    
+    // Check if actor already has visibility flags set
+    let currentFlags = actor.getFlag(MODULE_ID, 'hiddenElements');
+    if (currentFlags && Object.keys(currentFlags).length > 0) {
+        console.log(`${MODULE_ID} | [DEBUG] Actor ${actor.name} already has visibility flags, skipping initialization`);
+        return;
+    }
+    
+    // Initialize default visibility flags
+    try {
+        const systemId = actor.system?.id || game.system.id;
+        const systemHandler = systemRegistry.getHandler(systemId);
+        
+        if (!systemHandler) {
+            console.log(`${MODULE_ID} | [DEBUG] No system handler found for ${systemId}, skipping default flag initialization`);
+            return;
+        }
+        
+        console.log(`${MODULE_ID} | [DEBUG] Initializing default visibility flags for new token of actor: ${actor.name}`);
+        
+        const sectionDefinitions = systemHandler.getSystemSectionDefinitions();
+        const newFlags = {};
+
+        // Get the visibility settings object
+        const defaultVisibilitySettings = game.settings.get(MODULE_ID, 'defaultVisibilitySettings') || {};
+
+        // Handle legacy "Defenses" setting by applying it to all individual defense categories
+        const legacyDefensesHidden = defaultVisibilitySettings['dnd5e-showDefault-defensesSection'] === false;
+        const passiveFeaturesHidden = defaultVisibilitySettings['dnd5e-showDefault-passiveFeaturesSection'] === false;
+        
+        // First, set flags for section headers as before
+        for (const defKey in sectionDefinitions) {
+            const definition = sectionDefinitions[defKey];
+            if (definition.defaultShowSettingKey) {
+                // Read from the object instead of individual settings
+                let showByDefault = defaultVisibilitySettings[definition.defaultShowSettingKey] ?? true;
+                
+                // Apply legacy "Defenses" setting to individual defense categories
+                if (legacyDefensesHidden && definition.defaultShowSettingKey.includes('defense')) {
+                    showByDefault = false;
+                    console.log(`${MODULE_ID} | [DEBUG] Applying legacy defenses setting to ${definition.defaultShowSettingKey}`);
+                }
+                
+                const isHidden = !showByDefault;
+
+                if (definition.type === 'single') {
+                    newFlags[definition.keyPattern] = isHidden;
+                } else if (definition.type === 'group') {
+                    if (definition.keyPattern === 'ability-') {
+                        // Delegate to system handler for ability keys
+                        const abilityKeys = systemHandler.getDefaultAbilityKeys?.() || [];
+                        abilityKeys.forEach(abilKey => {
+                            newFlags[`ability-${abilKey}`] = isHidden;
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Now, get ALL possible toggleable keys and apply defaults to individual items
+        try {
+            // Generate defense tag keys directly from actor traits (don't rely on SIDS data)
+            const defenseTagKeys = _generateDefenseTagKeys(actor);
+            console.log(`${MODULE_ID} | [DEBUG] Generated defense tag keys:`, defenseTagKeys);
+            
+            // Generate feature keys directly from actor items
+            const featureKeys = _generateFeatureKeys(actor);
+            console.log(`${MODULE_ID} | [DEBUG] Generated feature keys:`, featureKeys);
+            
+            // Generate active effect keys directly from actor effects
+            const activeEffectKeys = _generateActiveEffectKeys(actor);
+            console.log(`${MODULE_ID} | [DEBUG] Generated active effect keys:`, activeEffectKeys);
+            
+            // Combine all keys
+            const allKeys = [...defenseTagKeys, ...featureKeys, ...activeEffectKeys];
+            console.log(`${MODULE_ID} | [DEBUG] All generated keys:`, allKeys);
+            console.log(`${MODULE_ID} | [DEBUG] Current default visibility settings:`, defaultVisibilitySettings);
+            
+            for (const key of allKeys) {
+                // Skip if we already set this key above
+                if (newFlags[key] !== undefined) continue;
+                
+                // Apply defaults to individual defense tags based on legacy "Defenses" setting OR individual category settings
+                if (key.startsWith('def-tag-')) {
+                    let shouldHide = false;
+                    
+                    // Check legacy "Defenses" setting first
+                    if (legacyDefensesHidden) {
+                        shouldHide = true;
+                        console.log(`${MODULE_ID} | [DEBUG] Hiding defense tag ${key} due to legacy Defenses setting`);
+                    }
+                    
+                    // Check individual defense category settings
+                    if (key.startsWith('def-tag-resistances-')) {
+                        const resistancesHidden = defaultVisibilitySettings['dnd5e-showDefault-defenseResistances'] === false;
+                        if (resistancesHidden) {
+                            shouldHide = true;
+                            console.log(`${MODULE_ID} | [DEBUG] Hiding defense tag ${key} due to Resistances setting`);
+                        }
+                    } else if (key.startsWith('def-tag-immunities-')) {
+                        const immunitiesHidden = defaultVisibilitySettings['dnd5e-showDefault-defenseImmunities'] === false;
+                        if (immunitiesHidden) {
+                            shouldHide = true;
+                            console.log(`${MODULE_ID} | [DEBUG] Hiding defense tag ${key} due to Immunities setting`);
+                        }
+                    } else if (key.startsWith('def-tag-vulnerabilities-')) {
+                        const vulnerabilitiesHidden = defaultVisibilitySettings['dnd5e-showDefault-defenseVulnerabilities'] === false;
+                        if (vulnerabilitiesHidden) {
+                            shouldHide = true;
+                            console.log(`${MODULE_ID} | [DEBUG] Hiding defense tag ${key} due to Vulnerabilities setting`);
+                        }
+                    } else if (key.startsWith('def-tag-conditionimmunities-')) {
+                        const conditionsHidden = defaultVisibilitySettings['dnd5e-showDefault-defenseConditions'] === false;
+                        if (conditionsHidden) {
+                            shouldHide = true;
+                            console.log(`${MODULE_ID} | [DEBUG] Hiding defense tag ${key} due to Condition Immunities setting`);
+                        }
+                    }
+                    
+                    if (shouldHide) {
+                        newFlags[key] = true; // Hide individual defense tags
+                    }
+                }
+                
+                // Apply defaults to individual feature items based on "Features" setting
+                if (key.startsWith('feature-') && passiveFeaturesHidden) {
+                    newFlags[key] = true; // Hide individual feature items
+                    console.log(`${MODULE_ID} | [DEBUG] Hiding individual feature item: ${key}`);
+                }
+                
+                // Apply defaults to individual active effects based on "Active Effects" setting
+                if (key.startsWith('effect-')) {
+                    const activeEffectsHidden = defaultVisibilitySettings['dnd5e-showDefault-activeEffectsSection'] === false;
+                    if (activeEffectsHidden) {
+                        newFlags[key] = true; // Hide individual active effects
+                        console.log(`${MODULE_ID} | [DEBUG] Hiding individual active effect: ${key}`);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn(`${MODULE_ID} | Error getting all toggleable keys for default initialization:`, error);
+        }
+        
+        console.log(`${MODULE_ID} | [DEBUG] Setting initialized default flags for actor ${actor.name}:`, newFlags);
+        
+        await actor.setFlag(MODULE_ID, 'hiddenElements', newFlags);
+        
+        console.log(`${MODULE_ID} | Successfully initialized default visibility flags for actor: ${actor.name}`);
+        
+    } catch (error) {
+        console.error(`${MODULE_ID} | Error initializing default visibility flags for actor ${actor.name}:`, error);
+    }
+});
+
 // Load system templates after all modules have initialized
 Hooks.once('ready', async function() {
     await registerSystemTemplates();
 });
+
+/**
+ * Generates defense tag keys directly from actor traits (D&D 5e specific)
+ * @param {Actor} actor - The actor to generate keys for
+ * @returns {string[]} Array of defense tag keys
+ */
+function _generateDefenseTagKeys(actor) {
+    const keys = [];
+    
+    if (!actor || !actor.system?.traits) {
+        console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: No actor or traits found`);
+        return keys;
+    }
+    
+    const traits = actor.system.traits;
+    console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Actor traits structure:`, traits);
+    
+    const defenseCategories = [
+        { dataPath: traits.dr, id: "resistances" },
+        { dataPath: traits.di, id: "immunities" },
+        { dataPath: traits.dv, id: "vulnerabilities" },
+        { dataPath: traits.ci, id: "conditionimmunities" }
+    ];
+    
+    console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Defense categories data:`, defenseCategories.map(c => ({ id: c.id, dataPath: c.dataPath })));
+    
+    for (const category of defenseCategories) {
+        const tagKeyPrefix = `def-tag-${category.id}-`;
+        
+        console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Processing category ${category.id}:`, category.dataPath);
+        
+        // Process trait values array
+        let traitValues = [];
+        if (category.dataPath?.value) {
+            console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Found value for ${category.id}:`, category.dataPath.value);
+            if (category.dataPath.value instanceof Set) {
+                // D&D 5e stores traits as Set objects
+                traitValues = Array.from(category.dataPath.value);
+                console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Converted Set to Array for ${category.id}:`, traitValues);
+            } else if (Array.isArray(category.dataPath.value)) {
+                traitValues = category.dataPath.value;
+            } else if (typeof category.dataPath.value === 'object') {
+                traitValues = Object.entries(category.dataPath.value)
+                    .filter(([, enabled]) => enabled === true)
+                    .map(([type]) => type);
+            }
+        } else {
+            console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: No value found for ${category.id}`);
+        }
+        
+        console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Trait values for ${category.id}:`, traitValues);
+        
+        // Generate keys for each trait value
+        traitValues.forEach(val => {
+            const tagKey = tagKeyPrefix + val.toLowerCase().replace(/[^a-z0-9]/gi, '');
+            console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Generated key for ${category.id}:`, tagKey);
+            keys.push(tagKey);
+        });
+        
+        // Process custom string
+        if (category.dataPath?.custom && typeof category.dataPath.custom === 'string') {
+            console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Found custom string for ${category.id}:`, category.dataPath.custom);
+            const customItems = category.dataPath.custom.split(';').map(s => s.trim()).filter(s => s.length > 0);
+            customItems.forEach(val => {
+                const tagKey = tagKeyPrefix + val.toLowerCase().replace(/[^a-z0-9]/gi, '');
+                console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: Generated custom key for ${category.id}:`, tagKey);
+                keys.push(tagKey);
+            });
+        } else {
+            console.log(`${MODULE_ID} | [DEBUG] _generateDefenseTagKeys: No custom string for ${category.id}`);
+        }
+    }
+    
+    return keys;
+}
+
+/**
+ * Generates feature keys directly from actor items (D&D 5e specific)
+ * @param {Actor} actor - The actor to generate keys for
+ * @returns {string[]} Array of feature keys
+ */
+function _generateFeatureKeys(actor) {
+    const keys = [];
+    
+    if (!actor || !actor.items) return keys;
+    
+    // List of common D&D 5e actions that should be excluded from passive features
+    const COMMON_ACTIONS = new Set([
+        'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
+        'help', 'hide', 'ready', 'search', 'use an object',
+        'grapple', 'shove', 'improvised action'
+    ]);
+    
+    const passiveFeatureItems = actor.items.filter(item => {
+        if (item.type !== "feat") return false;
+        
+        // Exclude common D&D actions from features list
+        const itemNameLower = item.name.toLowerCase();
+        if (COMMON_ACTIONS.has(itemNameLower)) {
+            return false;
+        }
+        
+        // Check if this feature has any activities that require activation
+        if (item.system.activities && Object.keys(item.system.activities).length > 0) {
+            const hasActiveActivation = Object.values(item.system.activities).some(activity => 
+                activity.activation && activity.activation.type && activity.activation.type !== ""
+            );
+            return !hasActiveActivation;
+        }
+        
+        // Fallback for items without activities system
+        if (!item.system.activities && item.system.activation) {
+            return item.system.activation.type === "" || !item.system.activation.type;
+        }
+        
+        return true;
+    });
+    
+    passiveFeatureItems.forEach(item => {
+        keys.push(`feature-${item.id}`);
+    });
+    
+    return keys;
+}
+
+/**
+ * Generates active effect keys directly from actor effects
+ * @param {Actor} actor - The actor to generate keys for  
+ * @returns {string[]} Array of active effect keys
+ */
+function _generateActiveEffectKeys(actor) {
+    const keys = [];
+    
+    if (!actor || !actor.effects) return keys;
+    
+    actor.effects.filter(e => !e.disabled).forEach(effect => {
+        keys.push(`effect-${effect.id}`);
+    });
+    
+    return keys;
+}
 
 // Expose for other modules or debugging if needed.
 // e.g., globalThis.InspectStatblock = { InspectStatblockApp, _openInspectStatblockForTargetedToken, _closeAllInspectStatblockApps }; 

@@ -17,7 +17,7 @@ const HARDCODED_DND5E_SETTINGS = [
     { keySuffix: "dnd5e-showDefault-health", name: "Health", hint: "Show health by default" },
     { keySuffix: "dnd5e-showDefault-abilities", name: "Ability Scores", hint: "Show all ability scores by default" },
     { keySuffix: "dnd5e-showDefault-activeEffectsSection", name: "Active Effects", hint: "Show active effects section by default" },
-    { keySuffix: "dnd5e-showDefault-defensesSection", name: "Defenses", hint: "Show defenses section by default" },
+
     { keySuffix: "dnd5e-showDefault-defenseResistances", name: "Resistances", hint: "Show damage resistances by default" },
     { keySuffix: "dnd5e-showDefault-defenseImmunities", name: "Immunities", hint: "Show damage immunities by default" },
     { keySuffix: "dnd5e-showDefault-defenseVulnerabilities", name: "Vulnerabilities", hint: "Show damage vulnerabilities by default" },
