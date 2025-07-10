@@ -1,8 +1,7 @@
 /* Inspect Statblock Tooltip Styles - Based on BG3 Module Pattern */
 
-:is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip {
-    /* Base styling for inspect-statblock tooltips */
-}
+/* :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip {
+} */
 
 :is(#tooltip, .locked-tooltip).dnd5e-tooltip.inspect-statblock-tooltip .loading {
     display: none !important;
@@ -60,7 +59,6 @@ body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.in
     max-width: unset;
 }
 
-/* Inspect Statblock specific tooltip content styling */
+/* Inspect Statblock specific tooltip content styling
 .inspect-statblock-tooltip-content {
-    /* Add any specific styling for inspect-statblock tooltip content */
-} 
+}  */
