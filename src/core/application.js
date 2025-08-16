@@ -110,6 +110,34 @@ class InspectStatblockApp extends Application {
         this._handleActorUpdateBound = this._handleActorUpdate.bind(this);
     }
 
+    // Preserve & restore scroll position across re-renders
+    _captureScrollPosition() {
+        try {
+            const appEl = this.element?.[0] ?? this.element;
+            if (!appEl) return;
+            const content = appEl.querySelector?.('.window-content');
+            this._pendingScrollTop = content?.scrollTop ?? 0;
+        } catch {}
+    }
+    _restoreScrollPosition() {
+        try {
+            if (this._pendingScrollTop == null) return;
+            const appEl = this.element?.[0] ?? this.element;
+            const content = appEl?.querySelector?.('.window-content');
+            if (content) content.scrollTop = this._pendingScrollTop;
+        } catch {}
+        finally {
+            this._pendingScrollTop = null;
+        }
+    }
+
+    render(force=false, options={}) {
+        const result = super.render(force, options);
+        // Defer restoration to after DOM is painted
+        setTimeout(() => this._restoreScrollPosition(), 0);
+        return result;
+    }
+
     /**
      * Determines which actor to use for flag storage.
      * Checks the flagStorageMode setting to determine whether to use shared (per-actor) 
@@ -442,6 +470,9 @@ class InspectStatblockApp extends Application {
             return;
         }
 
+        // Capture current scroll position before updating flags (to avoid jumping to top)
+        this._captureScrollPosition();
+
         const currentActorFlags = foundry.utils.deepClone(this.baseActor.getFlag(MODULE_ID, 'hiddenElements') || {});
         let updatedFlags = currentActorFlags;
 
@@ -563,6 +594,9 @@ class InspectStatblockApp extends Application {
             currentFlags: this.hiddenElements
         });
 
+        // Preserve scroll before mass update
+        this._captureScrollPosition();
+
         const allKeys = await this._getAllToggleableKeys(systemHandler);
         const newHiddenElements = {};
         allKeys.forEach(key => newHiddenElements[key] = false); // false means visible
@@ -581,6 +615,9 @@ class InspectStatblockApp extends Application {
             tokenId: this.tokenId,
             currentFlags: this.hiddenElements
         });
+
+        // Preserve scroll before mass update
+        this._captureScrollPosition();
 
         const allKeys = await this._getAllToggleableKeys(systemHandler);
         const newHiddenElements = {};
@@ -793,12 +830,16 @@ Hooks.on('preCreateToken', async function(document, data, options, userId) {
             const featureKeys = _generateFeatureKeys(actor);
             console.log(`${MODULE_ID} | [DEBUG] Generated feature keys:`, featureKeys);
             
+            // Generate ACTIVE feature keys directly from actor items
+            const activeFeatureKeys = _generateActiveFeatureKeys(actor);
+            console.log(`${MODULE_ID} | [DEBUG] Generated active feature keys:`, activeFeatureKeys);
+            
             // Generate active effect keys directly from actor effects
             const activeEffectKeys = _generateActiveEffectKeys(actor);
             console.log(`${MODULE_ID} | [DEBUG] Generated active effect keys:`, activeEffectKeys);
             
             // Combine all keys
-            const allKeys = [...defenseTagKeys, ...featureKeys, ...activeEffectKeys];
+            const allKeys = [...defenseTagKeys, ...featureKeys, ...activeFeatureKeys, ...activeEffectKeys];
             console.log(`${MODULE_ID} | [DEBUG] All generated keys:`, allKeys);
             console.log(`${MODULE_ID} | [DEBUG] Current default visibility settings:`, defaultVisibilitySettings);
             
@@ -852,6 +893,15 @@ Hooks.on('preCreateToken', async function(document, data, options, userId) {
                 if (key.startsWith('feature-') && passiveFeaturesHidden) {
                     newFlags[key] = true; // Hide individual feature items
                     console.log(`${MODULE_ID} | [DEBUG] Hiding individual feature item: ${key}`);
+                }
+                
+                // Apply defaults to individual ACTIVE feature items based on "Active Features" setting
+                if (key.startsWith('active-feature-')) {
+                    const activeFeaturesHidden = defaultVisibilitySettings['dnd5e-showDefault-activeFeaturesSection'] === false;
+                    if (activeFeaturesHidden) {
+                        newFlags[key] = true;
+                        console.log(`${MODULE_ID} | [DEBUG] Hiding individual active feature item: ${key}`);
+                    }
                 }
                 
                 // Apply defaults to individual active effects based on "Active Effects" setting
@@ -968,35 +1018,23 @@ function _generateFeatureKeys(actor) {
     
     if (!actor || !actor.items) return keys;
     
-    // List of common D&D 5e actions that should be excluded from passive features
-    const COMMON_ACTIONS = new Set([
-        'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
-        'help', 'hide', 'ready', 'search', 'use an object',
-        'grapple', 'shove', 'improvised action'
-    ]);
+    const isCommon = (name) => {
+        const k = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const S = new Set([
+            'attack','castaspell','dash','disengage','dodge','help','hide','ready','search','useanobject',
+            'grapple','shove','improvisedaction','readyaction','readyspell','squeeze','stabilize','fall','underwater','checkcover'
+        ]);
+        return S.has(k);
+    };
     
     const passiveFeatureItems = actor.items.filter(item => {
         if (item.type !== "feat") return false;
-        
-        // Exclude common D&D actions from features list
-        const itemNameLower = item.name.toLowerCase();
-        if (COMMON_ACTIONS.has(itemNameLower)) {
-            return false;
-        }
-        
-        // Check if this feature has any activities that require activation
-        if (item.system.activities && Object.keys(item.system.activities).length > 0) {
-            const hasActiveActivation = Object.values(item.system.activities).some(activity => 
-                activity.activation && activity.activation.type && activity.activation.type !== ""
-            );
-            return !hasActiveActivation;
-        }
-        
-        // Fallback for items without activities system
-        if (!item.system.activities && item.system.activation) {
-            return item.system.activation.type === "" || !item.system.activation.type;
-        }
-        
+        if (isCommon(item.name)) return false;
+        // Strict rule: passive if activities missing or empty
+        const activities = item.system.activities;
+        if (!activities) return true;
+        if (activities instanceof Map) return activities.size === 0;
+        if (typeof activities === 'object') return Object.keys(activities).length === 0;
         return true;
     });
     
@@ -1004,6 +1042,38 @@ function _generateFeatureKeys(actor) {
         keys.push(`feature-${item.id}`);
     });
     
+    return keys;
+}
+
+/**
+ * Generates ACTIVE feature keys directly from actor items (D&D 5e specific)
+ * @param {Actor} actor - The actor to generate keys for
+ * @returns {string[]} Array of active feature keys
+ */
+function _generateActiveFeatureKeys(actor) {
+    const keys = [];
+    if (!actor || !actor.items) return keys;
+
+    const isCommon = (name) => {
+        const k = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const S = new Set([
+            'attack','castaspell','dash','disengage','dodge','help','hide','ready','search','useanobject',
+            'grapple','shove','improvisedaction','readyaction','readyspell','squeeze','stabilize','fall','underwater','checkcover'
+        ]);
+        return S.has(k);
+    };
+
+    const activeFeatureItems = actor.items.filter(item => {
+        if (item.type !== 'feat') return false;
+        if (isCommon(item.name)) return false;
+        const activities = item.system.activities;
+        if (!activities) return false;
+        if (activities instanceof Map) return activities.size > 0;
+        if (typeof activities === 'object') return Object.keys(activities).length > 0;
+        return false;
+    });
+
+    activeFeatureItems.forEach(item => keys.push(`active-feature-${item.id}`));
     return keys;
 }
 

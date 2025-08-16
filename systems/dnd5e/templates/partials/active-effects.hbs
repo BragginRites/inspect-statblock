@@ -1,6 +1,6 @@
 <div class="statblock-section {{sectionClass}}"> {{!-- sectionClass will be "active-effects" --}}
     {{#if sectionData.title}}
-        <div class="section-title" data-element-key="section-active-effects">{{sectionData.title}}</div>
+        <div class="section-title" data-element-key="{{sectionData.elementKey}}">{{sectionData.title}}</div>
     {{/if}}
 
     {{#if sectionData.isEmpty}}

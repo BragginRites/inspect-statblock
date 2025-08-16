@@ -107,6 +107,25 @@ export function registerCoreSettings() {
         restricted: true // GM only
     });
 
+    // Auto-reveal behavior toggles
+    game.settings.register(MODULE_ID, "autoRevealOnDamage", {
+        name: "Auto-Reveal Defenses on Damage",
+        hint: "When enabled, taking damage of a type will automatically reveal matching defenses (resistance, immunity, vulnerability).",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true,
+    });
+
+    game.settings.register(MODULE_ID, "autoRevealOnFeatureUse", {
+        name: "Auto-Reveal Feature on Use",
+        hint: "When enabled, using a feature will automatically reveal it in the statblock.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true,
+    });
+
     // Example setting (can be removed or repurposed later)
     game.settings.register(MODULE_ID, "enableDebugMode", {
         name: "Enable Debug Mode (Example)",
@@ -123,36 +142,55 @@ export function registerCoreSettings() {
  * This is a utility function for resetting the module state.
  */
 async function _clearAllInspectStatblockFlags() {
-    console.log(`${MODULE_ID} | Starting to clear all visibility flags from all actors`);
-    
-    const actors = game.actors.contents;
-    let clearedCount = 0;
-    
+    console.log(`${MODULE_ID} | Starting to clear ALL Inspect Statblock data (actors + tokens)`);
+
+    const actors = game.actors?.contents ?? [];
+    const scenes = game.scenes?.contents ?? [];
+    let actorsCleared = 0;
+    let tokensCleared = 0;
+
     try {
+        // Clear on all Actor documents: remove the entire module flag object
         for (const actor of actors) {
-            const currentFlags = actor.getFlag(MODULE_ID, 'hiddenElements');
-            if (currentFlags && Object.keys(currentFlags).length > 0) {
+            // actor.flags is a plain object; ensure the module namespace exists by either
+            // reading flags[MODULE_ID] or getFlag (which initializes proxy accessors in v13)
+            const moduleFlags = actor.flags?.[MODULE_ID] ?? actor.getFlag(MODULE_ID);
+            if (moduleFlags && Object.keys(moduleFlags).length > 0) {
+                await actor.update({ [`flags.${MODULE_ID}`]: null }, { diff: false });
+                // As a fallback for some versions, also try unsetting known sub-keys
                 await actor.unsetFlag(MODULE_ID, 'hiddenElements');
-                clearedCount++;
-                console.log(`${MODULE_ID} | Cleared flags for actor: ${actor.name}`);
+                actorsCleared++;
+                console.log(`${MODULE_ID} | Cleared module data for actor: ${actor.name}`);
             }
         }
-        
-        console.log(`${MODULE_ID} | Successfully cleared flags from ${clearedCount} actors`);
-        
-        // Show success notification
-        ui.notifications.info(`Cleared visibility flags from ${clearedCount} actors. All statblocks have been reset to default visibility.`);
-        
+
+        // Clear on all TokenDocuments across all scenes (per-token storage)
+        for (const scene of scenes) {
+            const tokenDocs = scene.tokens?.contents ?? [];
+            for (const token of tokenDocs) {
+                const moduleFlags = token.flags?.[MODULE_ID] ?? token.getFlag?.(MODULE_ID);
+                if (moduleFlags && Object.keys(moduleFlags).length > 0) {
+                    await token.update({ [`flags.${MODULE_ID}`]: null }, { diff: false });
+                    await token.unsetFlag?.(MODULE_ID, 'hiddenElements');
+                    tokensCleared++;
+                    console.log(`${MODULE_ID} | Cleared module data for token: ${token.name} (scene: ${scene.name})`);
+                }
+            }
+        }
+
+        console.log(`${MODULE_ID} | Cleared Inspect Statblock data from ${actorsCleared} actors and ${tokensCleared} tokens.`);
+
+        ui.notifications.info(`Inspect Statblock: Cleared data for ${actorsCleared} actors and ${tokensCleared} tokens.`);
+
         // Refresh all open statblock windows
         Object.values(ui.windows).forEach(app => {
             if (app.constructor.name === 'InspectStatblockApp') {
-                console.log(`${MODULE_ID} | Refreshing open statblock window after flag clear`);
                 app.render(true);
             }
         });
-        
+
     } catch (error) {
-        console.error(`${MODULE_ID} | Error clearing flags:`, error);
-        ui.notifications.error(`Error clearing flags: ${error.message}`);
+        console.error(`${MODULE_ID} | Error clearing Inspect Statblock data:`, error);
+        ui.notifications.error(`Error clearing data: ${error.message}`);
     }
-} 
+}

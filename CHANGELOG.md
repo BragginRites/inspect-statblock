@@ -1,3 +1,9 @@
+## [1.0.2] - 2025-08-16
+### Fixed
+- **Visibility Defaults**: Can now set for individual ability scores. Also fixed the bugs generally across the board
+- **Auto Reveal**: Can now as a setting turn on auto-reveal when the actor recieves damage or a condition that they are resistant, vulnerable or immune to
+- **Passive vs Active Features**: Added a two sections for these
+
 ## [1.0.1] - 2025-07-10
 ### Fixed
 - **Visibility Defaults**: Fixed an issue where the default visibility settings were not being applied correctly. Now visibilities for new base actors are set when they are created on the canvas rather than when first inspected. (Related issue: #10)

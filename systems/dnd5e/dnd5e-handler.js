@@ -69,8 +69,598 @@ Hooks.once('init', () => {
                }
           });
       }
+
+      // Auto-reveal system
+      console.log(`${MODULE_ID} | Setting up auto-reveal hooks for DnD5e`);
+
+      // 1) Reveal condition immunities when a condition is applied
+      Hooks.on('createActiveEffect', async (effect) => {
+        try {
+          if (!effect?.parent || effect.parent.documentName !== 'Actor') return;
+          const actor = effect.parent;
+          const statuses = _getConditionStatusesFromEffect(effect);
+          if (statuses.size === 0) return;
+          for (const statusId of statuses) {
+            await _revealDefenseForCondition(actor, statusId);
+          }
+        } catch (err) {
+          console.warn(`${MODULE_ID} | Auto-reveal (conditions) failed:`, err);
+        }
+      });
+
+      // 2) Reveal feature when an activity is used (DnD5e v5.1.0+)
+      Hooks.on('dnd5e.useActivity', async (...args) => {
+        try {
+          const item = _extractItemFromDnd5eContext(args);
+          if (!item) return;
+          await _revealFeatureByItem(item);
+        } catch (err) {
+          console.debug(`${MODULE_ID} | Auto-reveal (useActivity) failed:`, err);
+        }
+      });
+      Hooks.on('dnd5e.postUseActivity', async (...args) => {
+        try {
+          if (!game.settings.get(MODULE_ID, 'autoRevealOnFeatureUse')) return;
+          const item = _extractItemFromDnd5eContext(args);
+          if (!item) return;
+          await _revealFeatureByItem(item);
+        } catch (err) {
+          console.debug(`${MODULE_ID} | Auto-reveal (postUseActivity) failed:`, err);
+        }
+      });
+
+      // 3) Damage detection: use canonical dnd5e hooks pair (v5.1.0)
+      Hooks.on('dnd5e.calculateDamage', (actor, damages, context) => {
+        try {
+          const types = Array.from(new Set(
+            (damages || [])
+              .map(d => d?.type)
+              .filter(t => t && t !== 'none')
+              .map(t => String(t).toLowerCase())
+          ));
+          context.__inspect_types__ = types;
+        } catch (err) {
+          console.debug(`${MODULE_ID} | calculateDamage capture failed:`, err);
+        }
+      });
+
+      Hooks.on('dnd5e.applyDamage', async (actor, _data, context) => {
+        try {
+          if (!game.settings.get(MODULE_ID, 'autoRevealOnDamage')) return;
+          const types = context?.__inspect_types__ || [];
+          if (!types.length || !actor) return;
+          // Prefer token document if synthetic
+          const tokenDoc = actor?.token ?? actor?.getActiveTokens?.()[0]?.document ?? null;
+          for (const type of types) {
+            await _revealDefenseForDamageType(actor, tokenDoc, type);
+          }
+        } catch (err) {
+          console.debug(`${MODULE_ID} | applyDamage reveal failed:`, err);
+        }
+      });
+
+      // MIDI-QOL compatibility: capture types and targets when MIDI applies damage
+      Hooks.on('midi-qol.RollComplete', async (workflow) => {
+        try {
+          if (!game.settings.get(MODULE_ID, 'autoRevealOnDamage')) return;
+          const details = workflow?.damageDetail;
+          const targets = workflow?.targets;
+          if (!Array.isArray(details) || !targets?.size) return;
+          const types = Array.from(new Set(details
+            .map(d => d?.type)
+            .filter(t => t && t !== 'none')
+            .map(t => String(t).toLowerCase())));
+          if (!types.length) return;
+          for (const t of targets) {
+            const token = t?.object ?? t; // Token placeable
+            const actor = token?.actor;
+            const tokenDoc = token?.document ?? null;
+            if (!actor) continue;
+            for (const type of types) {
+              await _revealDefenseForDamageType(actor, tokenDoc, type);
+            }
+          }
+        } catch (err) {
+          console.debug(`${MODULE_ID} | MIDI RollComplete reveal failed:`, err);
+        }
+      });
+
+      // Maintain default visibility for newly-added elements (traits/features) on actor updates
+      Hooks.on('updateActor', async (actor) => {
+        try {
+          await _ensureDefaultFlagsForNewElements(actor);
+        } catch (err) {
+          console.debug(`${MODULE_ID} | ensure defaults on updateActor failed:`, err);
+        }
+      });
+
+      Hooks.on('createItem', async (item) => {
+        try {
+          const actor = item?.parent?.documentName === 'Actor' ? item.parent : item?.actor;
+          if (!actor) return;
+          await _ensureDefaultFlagsForNewElements(actor);
+        } catch (err) {
+          console.debug(`${MODULE_ID} | ensure defaults on createItem failed:`, err);
+        }
+      });
   }
 });
+
+/**
+ * Extract an item UUID from a DnD5e chat message to detect feature usage.
+ * Handles several possible locations within message flags.
+ */
+function _getItemUuidFromMessage(message) {
+  try {
+    const flags = message?.flags?.dnd5e || {};
+    // Common locations in v5+ cards
+    const fromDirect = flags.itemUuid || flags.item?.uuid;
+    const fromActivity = flags.activity?.itemUuid || flags.activity?.item?.uuid;
+    const fromGeneric = message?.flags?.item?.uuid || message?.getFlag?.('dnd5e', 'itemUuid');
+    return fromDirect || fromActivity || fromGeneric || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reveal a passive feature when it is used/rolled by direct Item reference.
+ */
+async function _revealFeatureByItem(item) {
+  try {
+    if (!item || item.documentName !== 'Item') return;
+    const actor = item.actor;
+    if (!actor) return;
+    const featureKey = `feature-${item.id}`;
+    await _setHiddenFlag(actor, null, featureKey, false);
+    _rerenderOpenStatblocksForActor(actor);
+  } catch (err) {
+    console.debug(`${MODULE_ID} | _revealFeatureByItem: error`, err);
+  }
+}
+
+/**
+ * Extract damage types from a DnD5e chat message. Returns a Set<string> of canonical type ids.
+ */
+function _getDamageTypesFromMessage(message) {
+  const types = new Set();
+  try {
+    // Preferred: dedicated flag array
+    const fromFlag = message?.getFlag?.('dnd5e', 'damageTypes') || message?.flags?.dnd5e?.damageTypes;
+    if (Array.isArray(fromFlag)) fromFlag.forEach(t => t && types.add(String(t).toLowerCase()));
+    if (fromFlag instanceof Set) fromFlag.forEach(t => t && types.add(String(t).toLowerCase()));
+
+    // Optional: inspect structured roll data if exposed
+    const rolls = message?.flags?.dnd5e?.rolls || message?.rolls || [];
+    if (Array.isArray(rolls)) {
+      for (const r of rolls) {
+        const rTypes = r?.types || r?.damageTypes || r?.options?.types;
+        if (Array.isArray(rTypes)) rTypes.forEach(t => t && types.add(String(t).toLowerCase()));
+        if (rTypes instanceof Set) rTypes.forEach(t => t && types.add(String(t).toLowerCase()));
+      }
+    }
+  } catch (err) {
+    console.debug(`${MODULE_ID} | _getDamageTypesFromMessage: parse error`, err);
+  }
+  return types;
+}
+
+/**
+ * Extract target TokenDocuments (or Actors) from a chat message.
+ */
+function _getTargetDocsFromMessage(message) {
+  const targets = [];
+  const tryUuids = [];
+  try {
+    const flags = message?.flags?.dnd5e || {};
+    const fromFlag = message?.getFlag?.('dnd5e', 'targets') || flags.targets || [];
+    if (Array.isArray(fromFlag)) {
+      for (const t of fromFlag) {
+        if (typeof t === 'string') tryUuids.push(t);
+        if (typeof t === 'object' && t?.uuid) tryUuids.push(t.uuid);
+      }
+    }
+    const coreTargets = message?.targetUuids || message?.flags?.core?.targets || [];
+    if (Array.isArray(coreTargets)) coreTargets.forEach(u => tryUuids.push(u));
+
+    for (const uuid of tryUuids) {
+      const doc = fromUuidSync(uuid);
+      if (!doc) continue;
+      // Prefer TokenDocument for per-token flags
+      if (doc.documentName === 'Token') targets.push(doc);
+      else if (doc.documentName === 'Actor') targets.push(doc);
+    }
+  } catch (err) {
+    console.debug(`${MODULE_ID} | _getTargetDocsFromMessage: parse error`, err);
+  }
+  return targets;
+}
+
+/**
+ * Extract an Item from common DnD5e activity/use hook contexts.
+ */
+function _extractItemFromDnd5eContext(args) {
+  try {
+    for (const a of args) {
+      if (!a) continue;
+      if (a.documentName === 'Item') return a;
+      if (a.item?.documentName === 'Item') return a.item;
+      if (a.activity?.item?.documentName === 'Item') return a.activity.item;
+      if (a.parent?.documentName === 'Item') return a.parent;
+    }
+  } catch {}
+  return null;
+}
+
+/**
+ * Extract targets and damage types from DnD5e applyDamage/rollDamage contexts.
+ */
+function _extractDamageContext(args) {
+  const targets = [];
+  const damageTypes = new Set();
+  
+  try {
+    for (let i = 0; i < args.length; i++) {
+      const a = args[i];
+      
+      if (!a) continue;
+      
+      // Extract targets - could be tokens, actors, or arrays thereof
+      const possibleTargets = [
+        a.targets, a.target, a.token, a.tokens, a.actor, a.actors,
+        a.targetTokens, a.targetActors
+      ];
+      
+      for (const t of possibleTargets) {
+        if (!t) continue;
+        if (t instanceof Set) {
+          t.forEach(v => v && targets.push(v));
+        } else if (Array.isArray(t)) {
+          t.forEach(v => v && targets.push(v));
+        } else if (t.documentName === 'Token' || t.documentName === 'Actor') {
+          targets.push(t);
+        }
+      }
+      
+      // Extract damage types - prefer dnd5e v5 payload shapes; fallbacks included
+      const possibleTypes = [
+        a.damageTypes,
+        a.types,
+        a.damage?.types,
+        a.roll?.types,
+        a.roll?.damageTypes,
+        a.damage?.type,
+        a.damageType,
+        a.type,
+        a?.subject?.type, // Common in applyDamage payloads
+        a?.subject?.damageType,
+      ];
+      
+      for (const dt of possibleTypes) {
+        if (!dt) continue;
+        if (dt instanceof Set) {
+          dt.forEach(v => v && damageTypes.add(String(v).toLowerCase()));
+        } else if (Array.isArray(dt)) {
+          dt.forEach(v => v && damageTypes.add(String(v).toLowerCase()));
+        } else if (typeof dt === 'string') {
+          damageTypes.add(dt.toLowerCase());
+        }
+      }
+      
+      // Special handling for roll objects in args
+      if (a.formula || a.terms) {
+        // This arg looks like a roll object
+        if (a.options?.type) damageTypes.add(String(a.options.type).toLowerCase());
+        if (a.options?.damageType) damageTypes.add(String(a.options.damageType).toLowerCase());
+        if (a.options?.flavor?.includes) {
+          const flavor = String(a.options.flavor).toLowerCase();
+          // Simple pattern matching for common damage types
+          const typePatterns = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+          for (const type of typePatterns) {
+            if (flavor.includes(type)) {
+              damageTypes.add(type);
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`${MODULE_ID} | _extractDamageContext: error`, err);
+  }
+  
+  return { targets, damageTypes };
+}
+
+/**
+ * Reveal defenses for a given damage type on an actor/token, if the actor has such defenses.
+ */
+async function _revealDefenseForDamageType(actor, tokenDoc, damageTypeId) {
+  try {
+    const traits = actor?.system?.traits;
+    if (!traits) return;
+    
+    const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/gi, '');
+    const t = norm(damageTypeId);
+
+    const hasRes = _traitHas(traits.dr, t);
+    const hasImm = _traitHas(traits.di, t);
+    const hasVul = _traitHas(traits.dv, t);
+
+    let shouldRerender = false;
+    if (hasRes) {
+      console.log(`${MODULE_ID} | Auto-revealing resistance to ${t} for ${actor.name}`);
+      const changed1 = await _setHiddenFlag(actor, tokenDoc, 'def-resistances', false);
+      const changed2 = await _setHiddenFlag(actor, tokenDoc, `def-tag-resistances-${t}`, false);
+      shouldRerender = changed1 || changed2 || shouldRerender;
+    }
+    if (hasImm) {
+      console.log(`${MODULE_ID} | Auto-revealing immunity to ${t} for ${actor.name}`);
+      const changed1 = await _setHiddenFlag(actor, tokenDoc, 'def-immunities', false);
+      const changed2 = await _setHiddenFlag(actor, tokenDoc, `def-tag-immunities-${t}`, false);
+      shouldRerender = changed1 || changed2 || shouldRerender;
+    }
+    if (hasVul) {
+      console.log(`${MODULE_ID} | Auto-revealing vulnerability to ${t} for ${actor.name}`);
+      const changed1 = await _setHiddenFlag(actor, tokenDoc, 'def-vulnerabilities', false);
+      const changed2 = await _setHiddenFlag(actor, tokenDoc, `def-tag-vulnerabilities-${t}`, false);
+      shouldRerender = changed1 || changed2 || shouldRerender;
+    }
+
+    if (shouldRerender) {
+      console.log(`${MODULE_ID} | Re-rendering statblock for ${actor.name} due to defense reveal`);
+      _rerenderOpenStatblocksForActor(actor);
+    }
+  } catch (err) {
+    console.warn(`${MODULE_ID} | _revealDefenseForDamageType: error`, err);
+  }
+}
+
+/**
+ * Reveal condition immunities when a specific condition is applied.
+ */
+async function _revealDefenseForCondition(actor, conditionId) {
+  try {
+    const traits = actor?.system?.traits;
+    if (!traits) return;
+    
+    const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/gi, '');
+    const c = norm(conditionId);
+    
+    const hasCondImm = _traitHas(traits.ci, c);
+    if (!hasCondImm) return;
+    
+    console.log(`${MODULE_ID} | Auto-revealing condition immunity to ${c} for ${actor.name}`);
+    const changed1 = await _setHiddenFlag(actor, null, 'def-conditionimmunities', false);
+    const changed2 = await _setHiddenFlag(actor, null, `def-tag-conditionimmunities-${c}`, false);
+    
+    if (changed1 || changed2) {
+      console.log(`${MODULE_ID} | Re-rendering statblock for ${actor.name} due to condition immunity reveal`);
+      _rerenderOpenStatblocksForActor(actor);
+    }
+  } catch (err) {
+    console.warn(`${MODULE_ID} | _revealDefenseForCondition: error`, err);
+  }
+}
+
+/**
+ * Whether a trait collection contains a given id. Supports Set, Array, and flag objects.
+ */
+function _traitHas(traitField, id) {
+  try {
+    if (!traitField) return false;
+    
+    // Check the value property (v5+ format)
+    if (traitField.value instanceof Set) {
+      return traitField.value.has(id);
+    }
+    
+    if (Array.isArray(traitField.value)) {
+      const normalized = traitField.value.map(String).map(s => s.toLowerCase());
+      return normalized.includes(id);
+    }
+    
+    if (typeof traitField.value === 'object' && traitField.value !== null) {
+      return !!traitField.value[id];
+    }
+    
+    // Check if it's directly an array/set (legacy format)
+    if (traitField instanceof Set) {
+      return traitField.has(id);
+    }
+    
+    if (Array.isArray(traitField)) {
+      const normalized = traitField.map(String).map(s => s.toLowerCase());
+      return normalized.includes(id);
+    }
+    
+    return false;
+  } catch (err) {
+    console.warn(`${MODULE_ID} | _traitHas error:`, err);
+    return false;
+  }
+}
+
+/**
+ * Set a hiddenElements flag to a specific boolean on either the token or actor, respecting storage mode.
+ */
+async function _setHiddenFlag(actor, tokenDoc, key, hidden) {
+  try {
+    const storageMode = game.settings.get(MODULE_ID, 'flagStorageMode') || 'per-actor';
+    let targetDoc = null;
+
+    if (storageMode === 'per-token') {
+      // In per-token mode write to the TokenDocument if provided, else fall back to the actor
+      targetDoc = tokenDoc || actor;
+    } else {
+      // In per-actor mode always write to the base Actor document that sheets/apps read from
+      if (tokenDoc?.actorId) {
+        targetDoc = game.actors.get(tokenDoc.actorId) || actor;
+      } else if (actor?.isToken) {
+        // Synthetic token actor - resolve its base if available
+        targetDoc = game.actors.get(actor.id) || actor;
+      } else {
+        // Already a base actor
+        targetDoc = actor;
+      }
+    }
+
+    if (!targetDoc) {
+      console.warn(`${MODULE_ID} | _setHiddenFlag: No target document for key ${key}`);
+      return false;
+    }
+
+    const current = foundry.utils.duplicate(targetDoc.getFlag(MODULE_ID, 'hiddenElements') || {});
+
+    if (current[key] === hidden) {
+      // Even if the flag is already set correctly, signal caller to re-render
+      return true;
+    }
+
+    current[key] = hidden;
+    await targetDoc.setFlag(MODULE_ID, 'hiddenElements', current);
+    return true;
+  } catch (err) {
+    console.error(`${MODULE_ID} | _setHiddenFlag: error setting ${key}=${hidden}:`, err);
+    return false;
+  }
+}
+
+/**
+ * Rerender any open statblock windows for a given actor.
+ */
+function _rerenderOpenStatblocksForActor(actor, tokenDoc = null) {
+  try {
+    // Determine the base actor id we updated so we re-render any app showing that base
+    let targetBaseId = null;
+    if (tokenDoc?.actorId) targetBaseId = tokenDoc.actorId;
+    else if (actor?.isToken) targetBaseId = actor.id; // base id is the same identifier used by game.actors.get
+    else targetBaseId = actor?.id;
+
+    Object.values(ui.windows).forEach(app => {
+      if (app?.constructor?.name !== 'InspectStatblockApp') return;
+      const appBaseId = app?.baseActor?.id || app?.actor?.id;
+      if (appBaseId && appBaseId === targetBaseId) {
+        app.render(true);
+      }
+    });
+  } catch {}
+}
+
+/**
+ * Ensure default flags exist for any newly-added elements (defense tags, features, effects) so
+ * that visibility respects module defaults instead of implicitly showing.
+ */
+async function _ensureDefaultFlagsForNewElements(actor) {
+  try {
+    if (!actor) return;
+    const storageMode = game.settings.get(MODULE_ID, 'flagStorageMode') || 'per-actor';
+    const targetDoc = (storageMode === 'per-actor') ? (game.actors.get(actor.id) || actor) : actor;
+
+    const current = foundry.utils.duplicate(targetDoc.getFlag(MODULE_ID, 'hiddenElements') || {});
+
+    // Read defaults
+    const defaults = game.settings.get(MODULE_ID, 'defaultVisibilitySettings') || {};
+
+    // 1) Defense tags derived from traits
+    const traits = actor.system?.traits;
+    const categories = [
+      { id: 'resistances', field: traits?.dr, setting: 'dnd5e-showDefault-defenseResistances' },
+      { id: 'immunities', field: traits?.di, setting: 'dnd5e-showDefault-defenseImmunities' },
+      { id: 'vulnerabilities', field: traits?.dv, setting: 'dnd5e-showDefault-defenseVulnerabilities' },
+      { id: 'conditionimmunities', field: traits?.ci, setting: 'dnd5e-showDefault-defenseConditions' }
+    ];
+
+    for (const c of categories) {
+      const values = _collectTraitValues(c.field);
+      const showByDefault = defaults[c.setting] ?? true;
+      const categoryKey = `def-${c.id}`;
+      if (!(categoryKey in current)) current[categoryKey] = !showByDefault;
+      for (const v of values) {
+        const tagKey = `def-tag-${c.id}-${v}`;
+        if (!(tagKey in current)) current[tagKey] = !showByDefault;
+      }
+    }
+
+    // 2) Passive features list
+    if (Array.isArray(actor.items)) {
+      const featureItems = actor.items.filter(i => i.type === 'feat');
+      for (const item of featureItems) {
+        const key = `feature-${item.id}`;
+        if (!(key in current)) {
+          // Default: follow Features section default if present
+          const showByDefault = defaults['dnd5e-showDefault-passiveFeaturesSection'] ?? true;
+          current[key] = !showByDefault;
+        }
+      }
+    }
+
+    // 3) Active effects
+    if (actor.effects) {
+      for (const effect of actor.effects) {
+        if (effect.disabled) continue;
+        const key = `effect-${effect.id}`;
+        if (!(key in current)) {
+          const showByDefault = defaults['dnd5e-showDefault-activeEffectsSection'] ?? true;
+          current[key] = !showByDefault;
+        }
+      }
+    }
+
+    await targetDoc.setFlag(MODULE_ID, 'hiddenElements', current);
+  } catch (err) {
+    console.debug(`${MODULE_ID} | _ensureDefaultFlagsForNewElements error:`, err);
+  }
+}
+
+function _collectTraitValues(field) {
+  try {
+    if (!field) return [];
+    if (field.value instanceof Set) return Array.from(field.value).map(toKey);
+    if (Array.isArray(field.value)) return field.value.map(toKey);
+    if (typeof field.value === 'object') return Object.entries(field.value).filter(([, v]) => v === true).map(([k]) => toKey(k));
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function toKey(val) {
+  return String(val).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Returns true if an item name is a generic/common DnD5e action we never want to list as a feature.
+ * Comparison is performed on a canonicalized alphanumeric-lowercase string.
+ */
+function _isCommonDnd5eActionName(name) {
+  try {
+    const k = toKey(name);
+    const COMMON = new Set([
+      'attack', 'castaspell', 'dash', 'disengage', 'dodge', 'help', 'hide', 'ready', 'search',
+      'useanobject', 'grapple', 'shove', 'improvisedaction',
+      // Additional common CPR actions
+      'readyaction', 'readyspell', 'squeeze', 'stabilize', 'fall', 'underwater', 'checkcover'
+    ]);
+    return COMMON.has(k);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Extract condition status ids from an ActiveEffect (dnd5e v5+).
+ */
+function _getConditionStatusesFromEffect(effect) {
+  const ids = new Set();
+  try {
+    const statuses = effect?.statuses || effect?.data?.statuses; // v13 uses .statuses Set
+    if (statuses instanceof Set) statuses.forEach(s => s && ids.add(String(s).toLowerCase()));
+    if (Array.isArray(statuses)) statuses.forEach(s => s && ids.add(String(s).toLowerCase()));
+    // Some systems also store a single statusId
+    if (effect?.statusId) ids.add(String(effect.statusId).toLowerCase());
+  } catch {}
+  return ids;
+}
 
 /**
  * Helper function to determine if an element should be hidden based on flags or defaults.
@@ -81,13 +671,46 @@ Hooks.once('init', () => {
  * @private
  */
 function _shouldHideElement(elementKey, hiddenElements, isGM) {
-  // GMs always see everything unless explicitly hidden by flag
-  if (isGM) return hiddenElements[elementKey] || false;
-
-  // For players:
-  // If a flag exists, use it
+  // If a flag exists (for GM or player), use it
   if (elementKey in hiddenElements) {
     return hiddenElements[elementKey];
+  }
+
+  // Special-case: individual defense tags should inherit their category's default when no tag flag exists
+  // Example keys: def-tag-resistances-fire, def-tag-immunities-poison, def-tag-vulnerabilities-slashing, def-tag-conditionimmunities-poisoned
+  const tagMatch = /^def-tag-(resistances|immunities|vulnerabilities|conditionimmunities)-/.exec(elementKey);
+  if (!isGM && tagMatch) {
+    const categoryId = tagMatch[1];
+    const categoryElementKey = `def-${categoryId}`; // e.g., def-resistances
+    // If category flag exists, inherit it
+    if (categoryElementKey in hiddenElements) {
+      return hiddenElements[categoryElementKey];
+    }
+    // Otherwise, fall back to category default visibility setting
+    const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
+    const categoryToSettingKey = {
+      resistances: 'dnd5e-showDefault-defenseResistances',
+      immunities: 'dnd5e-showDefault-defenseImmunities',
+      vulnerabilities: 'dnd5e-showDefault-defenseVulnerabilities',
+      conditionimmunities: 'dnd5e-showDefault-defenseConditions'
+    };
+    const settingKey = categoryToSettingKey[categoryId];
+    if (settingKey) {
+      const showByDefault = defaultVisibilitySettings[settingKey] ?? true;
+      return !showByDefault; // if default says don't show, then hide the tag
+    }
+  }
+
+  // Special-case: features and active effects inherit section defaults when no explicit flag exists
+  if (elementKey.startsWith('feature-')) {
+    const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
+    const showByDefault = defaultVisibilitySettings['dnd5e-showDefault-passiveFeaturesSection'] ?? true;
+    return !showByDefault;
+  }
+  if (elementKey.startsWith('effect-')) {
+    const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
+    const showByDefault = defaultVisibilitySettings['dnd5e-showDefault-activeEffectsSection'] ?? true;
+    return !showByDefault;
   }
 
   // No flag exists, check the default setting
@@ -103,9 +726,9 @@ function _shouldHideElement(elementKey, hiddenElements, isGM) {
   });
 
   if (matchingDef?.defaultShowSettingKey) {
-                // Read from the visibility settings object instead of individual settings
-                const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
-                const showByDefault = defaultVisibilitySettings[matchingDef.defaultShowSettingKey] ?? true;
+    // Read from the visibility settings object instead of individual settings
+    const defaultVisibilitySettings = game.settings.get('inspect-statblock', 'defaultVisibilitySettings') || {};
+    const showByDefault = defaultVisibilitySettings[matchingDef.defaultShowSettingKey] ?? true;
     return !showByDefault; // If showByDefault is false, we should hide
   }
 
@@ -306,6 +929,7 @@ async function getStandardizedActorData(actor, token, hiddenElements, isGM) {
     activeEffects: _getActiveEffectsData(actor, hiddenElements, isGM),
     defenses: defensesSection, // Assign the newly constructed defenses section
     passiveFeatures: _getPassiveFeaturesData(actor, hiddenElements, isGM),
+    activeFeatures: _getActiveFeaturesData(actor, hiddenElements, isGM),
   };
 
   console.log("Inspect Statblock | [Dnd5eHandler.getStandardizedActorData] Processed actor:", actor.name, "SIDS Data (partial):", sidsData);
@@ -775,7 +1399,7 @@ function _getSingleDefenseCategoryItem(defenseValuesObjectOrArray, categoryName,
 function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
   const sectionElementKey = "section-passive-features";
   const featuresSection = {
-    title: "Features",
+    title: "Passive Traits",
     items: [],
     isEmpty: true,
     sectionClasses: "passive-features-section",
@@ -794,28 +1418,15 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
     if (item.type !== "feat") return false;
     
     // Exclude common D&D actions from features list
-    const itemNameLower = item.name.toLowerCase();
-    if (COMMON_ACTIONS.has(itemNameLower)) {
+    if (_isCommonDnd5eActionName(item.name)) {
       return false;
     }
     
-    // Check if this feature has any activities that require activation
-    // If it has no activities or all activities are passive, consider it a passive feature
-    if (item.system.activities && Object.keys(item.system.activities).length > 0) {
-      // Check if any activity requires activation (non-passive)
-      const hasActiveActivation = Object.values(item.system.activities).some(activity => 
-        activity.activation && activity.activation.type && activity.activation.type !== ""
-      );
-      return !hasActiveActivation; // Only include if no active activation found
-    }
-    
-    // Fallback for items without activities system or older D&D 5e versions
-    // Check the legacy activation property if activities don't exist
-    if (!item.system.activities && item.system.activation) {
-      return item.system.activation.type === "" || !item.system.activation.type;
-    }
-    
-    // If no activities and no legacy activation, assume it's passive
+    // Strict rule: passive if activities missing or empty; active otherwise
+    const activities = item.system.activities;
+    if (!activities) return true;
+    if (activities instanceof Map) return activities.size === 0;
+    if (typeof activities === 'object') return Object.keys(activities).length === 0;
     return true;
   });
 
@@ -828,7 +1439,7 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
   for (const item of passiveFeatureItems) {
     const elementKey = `feature-${item.id}`;
     const isFeatureHiddenForPlayer = !isGM && _shouldHideElement(elementKey, hiddenElements, isGM);
-    const featureIsHiddenByGM = isGM && hiddenElements[elementKey];
+    const featureIsHiddenByGM = isGM && _shouldHideElement(elementKey, hiddenElements, isGM);
 
     // DEBUG LOG:
     if (isGM) {
@@ -896,6 +1507,82 @@ function _getPassiveFeaturesData(actor, hiddenElements, isGM) {
 
   // isEmpty reflects original presence of items. Player view of all "??" is handled by template.
   if (featuresSection.items.length === 0) featuresSection.isEmpty = true; 
+
+  return featuresSection;
+}
+
+/**
+ * Processes actor active features (feats with at least one non-passive activity) for SIDS.
+ * @param {Actor} actor - The D&D 5e actor document.
+ * @param {object} hiddenElements - The hiddenElements flag object.
+ * @param {boolean} isGM - Whether the current user is a GM.
+ * @returns {SIDS.StatblockSection}
+ * @private
+ */
+function _getActiveFeaturesData(actor, hiddenElements, isGM) {
+  const sectionElementKey = "section-active-features";
+  const featuresSection = {
+    title: "Active Features",
+    items: [],
+    isEmpty: true,
+    sectionClasses: "active-features-section",
+    elementKey: sectionElementKey,
+    isHiddenGM: isGM && _shouldHideElement(sectionElementKey, hiddenElements, isGM)
+  };
+
+  const activeFeatureItems = (actor.items || []).filter(item => {
+    if (item.type !== "feat") return false;
+    if (_isCommonDnd5eActionName(item.name)) return false;
+    const activities = item.system.activities;
+    if (!activities) return false;
+    if (activities instanceof Map) return activities.size > 0;
+    if (typeof activities === 'object') return Object.keys(activities).length > 0;
+    return false;
+  });
+
+  if (activeFeatureItems.length === 0) return featuresSection;
+  featuresSection.isEmpty = false;
+
+  for (const item of activeFeatureItems) {
+    const elementKey = `active-feature-${item.id}`;
+    const isHiddenForPlayer = !isGM && _shouldHideElement(elementKey, hiddenElements, isGM);
+    const isHiddenByGM = isGM && _shouldHideElement(elementKey, hiddenElements, isGM);
+
+    featuresSection.items.push({
+      id: item.id,
+      name: isHiddenForPlayer ? "??" : item.name,
+      icon: isHiddenForPlayer ? "" : item.img,
+      descriptionHTML: isHiddenForPlayer ? "" : (item.system.description?.value || ""),
+      elementKey,
+      isHiddenGM: isHiddenByGM,
+      uuid: item.uuid || `Actor.${actor.id}.Item.${item.id}`,
+      enhancedTooltipData: isHiddenForPlayer ? null : {
+        name: item.name,
+        img: item.img,
+        type: {
+          value: item.type,
+          label: CONFIG.Item?.typeLabels?.[item.type] || item.type
+        },
+        subtitle: _getItemSubtitle(item),
+        description: { value: item.system.description?.value || "" },
+        uses: item.system.uses ? {
+          value: item.system.uses.value || 0,
+          max: item.system.uses.max || 0,
+          per: item.system.uses.per || ""
+        } : null,
+        properties: _getItemProperties(item),
+        activities: item.system.activities ? Object.values(item.system.activities).map(activity => ({
+          name: activity.name,
+          activation: activity.activation,
+          range: activity.range,
+          target: activity.target,
+          damage: activity.damage,
+          save: activity.save
+        })) : []
+      },
+      nativeTooltipText: isHiddenForPlayer ? "" : item.name,
+    });
+  }
 
   return featuresSection;
 }
@@ -1127,10 +1814,16 @@ function getSystemSectionDefinitions() {
         defaultShowSettingKey: "dnd5e-showDefault-defenseConditions"
     },
     passiveFeaturesSection: {
-        name: i18n.localize("DND5E.Features") + " Section",
+        name: i18n.localize("DND5E.Features") + " (Passive)",
         type: 'single',
         keyPattern: "section-passive-features",
         defaultShowSettingKey: "dnd5e-showDefault-passiveFeaturesSection"
+    },
+    activeFeaturesSection: {
+        name: i18n.localize("DND5E.Features") + " (Active)",
+        type: 'single',
+        keyPattern: "section-active-features",
+        defaultShowSettingKey: "dnd5e-showDefault-activeFeaturesSection"
     }
   };
 }
@@ -1189,45 +1882,36 @@ export const Dnd5eHandler = {
       actor.effects.filter(e => !e.disabled).forEach(effect => keys.add(`effect-${effect.id}`));
     }
 
-    // Add passive features - using modern activities system logic
+    // Add passive features - using strict activities rule
     if (actor.items) {
-      // List of common D&D 5e actions that should be excluded from passive features
-      const COMMON_ACTIONS = new Set([
-        'attack', 'cast a spell', 'dash', 'disengage', 'dodge', 
-        'help', 'hide', 'ready', 'search', 'use an object',
-        'grapple', 'shove', 'improvised action'
-      ]);
-      
       const passiveFeatureItems = actor.items.filter(item => {
         if (item.type !== "feat") return false;
         
         // Exclude common D&D actions from features list
-        const itemNameLower = item.name.toLowerCase();
-        if (COMMON_ACTIONS.has(itemNameLower)) {
+        if (_isCommonDnd5eActionName(item.name)) {
           return false;
         }
         
-        // Check if this feature has any activities that require activation
-        // If it has no activities or all activities are passive, consider it a passive feature
-        if (item.system.activities && Object.keys(item.system.activities).length > 0) {
-          // Check if any activity requires activation (non-passive)
-          const hasActiveActivation = Object.values(item.system.activities).some(activity => 
-            activity.activation && activity.activation.type && activity.activation.type !== ""
-          );
-          return !hasActiveActivation; // Only include if no active activation found
-        }
-        
-        // Fallback for items without activities system or older D&D 5e versions
-        // Check the legacy activation property if activities don't exist
-        if (!item.system.activities && item.system.activation) {
-          return item.system.activation.type === "" || !item.system.activation.type;
-        }
-        
-        // If no activities and no legacy activation, assume it's passive
+        // Strict rule: passive if activities missing or empty
+        const activities = item.system.activities;
+        if (!activities) return true;
+        if (activities instanceof Map) return activities.size === 0;
+        if (typeof activities === 'object') return Object.keys(activities).length === 0;
         return true;
       });
       
       passiveFeatureItems.forEach(item => keys.add(`feature-${item.id}`));
+
+      // Active features
+      const activeFeatureItems = actor.items.filter(item => {
+        if (item.type !== 'feat') return false;
+        const activities = item.system.activities;
+        if (!activities) return false;
+        if (activities instanceof Map) return activities.size > 0;
+        if (typeof activities === 'object') return Object.keys(activities).length > 0;
+        return false;
+      });
+      activeFeatureItems.forEach(item => keys.add(`active-feature-${item.id}`));
     }
 
     // Add defense tag keys from SIDS data if available
@@ -1274,8 +1958,7 @@ export const Dnd5eHandler = {
             if (item.type !== "feat") return false;
             
             // Exclude common D&D actions from features list
-            const itemNameLower = item.name.toLowerCase();
-            if (COMMON_ACTIONS.has(itemNameLower)) {
+            if (_isCommonDnd5eActionName(item.name)) {
               return false;
             }
             

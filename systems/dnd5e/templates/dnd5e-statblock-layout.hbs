@@ -67,3 +67,9 @@
         {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.passiveFeatures sectionClass="passive-features" isGM=../this.isGM}}
     {{/if}}
 {{/if}} 
+
+{{#if this.activeFeatures}}
+    {{#if (or this.activeFeatures.items.length this.activeFeatures.isEmpty)}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.activeFeatures sectionClass="active-features" isGM=../this.isGM}}
+    {{/if}}
+{{/if}}

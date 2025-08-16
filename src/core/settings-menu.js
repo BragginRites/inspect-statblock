@@ -28,7 +28,8 @@ const HARDCODED_DND5E_SETTINGS = [
     { keySuffix: "dnd5e-showDefault-defenseImmunities", name: "Immunities", hint: "Show damage immunities by default" },
     { keySuffix: "dnd5e-showDefault-defenseVulnerabilities", name: "Vulnerabilities", hint: "Show damage vulnerabilities by default" },
     { keySuffix: "dnd5e-showDefault-defenseConditions", name: "Condition Immunities", hint: "Show condition immunities by default" },
-    { keySuffix: "dnd5e-showDefault-passiveFeaturesSection", name: "Features", hint: "Show features section by default" }
+    { keySuffix: "dnd5e-showDefault-passiveFeaturesSection", name: "Passive Features", hint: "Show passive features by default" },
+    { keySuffix: "dnd5e-showDefault-activeFeaturesSection", name: "Active Features", hint: "Show active features by default" }
 ];
 
 /**
