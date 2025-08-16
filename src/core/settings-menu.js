@@ -15,7 +15,13 @@ const HARDCODED_DND5E_SETTINGS = [
     { keySuffix: "dnd5e-showDefault-movementClimb", name: "Climb Speed", hint: "Show climb speed by default" },
     { keySuffix: "dnd5e-showDefault-movementBurrow", name: "Burrow Speed", hint: "Show burrow speed by default" },
     { keySuffix: "dnd5e-showDefault-health", name: "Health", hint: "Show health by default" },
-    { keySuffix: "dnd5e-showDefault-abilities", name: "Ability Scores", hint: "Show all ability scores by default" },
+    // Ability scores (split per ability)
+    { keySuffix: "dnd5e-showDefault-abilityStr", name: "Strength", hint: "Show Strength by default" },
+    { keySuffix: "dnd5e-showDefault-abilityDex", name: "Dexterity", hint: "Show Dexterity by default" },
+    { keySuffix: "dnd5e-showDefault-abilityCon", name: "Constitution", hint: "Show Constitution by default" },
+    { keySuffix: "dnd5e-showDefault-abilityInt", name: "Intelligence", hint: "Show Intelligence by default" },
+    { keySuffix: "dnd5e-showDefault-abilityWis", name: "Wisdom", hint: "Show Wisdom by default" },
+    { keySuffix: "dnd5e-showDefault-abilityCha", name: "Charisma", hint: "Show Charisma by default" },
     { keySuffix: "dnd5e-showDefault-activeEffectsSection", name: "Active Effects", hint: "Show active effects section by default" },
 
     { keySuffix: "dnd5e-showDefault-defenseResistances", name: "Resistances", hint: "Show damage resistances by default" },

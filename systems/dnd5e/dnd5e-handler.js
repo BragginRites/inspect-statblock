@@ -1052,11 +1052,41 @@ function getSystemSectionDefinitions() {
       keyPattern: "section-hp",
       defaultShowSettingKey: "dnd5e-showDefault-health"
     },
-    abilities: {
-      name: i18n.localize("DND5E.Abilities"),
-      type: 'group',
-      keyPattern: "ability-",
-      defaultShowSettingKey: "dnd5e-showDefault-abilities"
+    abilityStr: {
+      name: i18n.localize("DND5E.AbilityStr") || "Strength",
+      type: 'single',
+      keyPattern: "ability-str",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityStr"
+    },
+    abilityDex: {
+      name: i18n.localize("DND5E.AbilityDex") || "Dexterity",
+      type: 'single',
+      keyPattern: "ability-dex",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityDex"
+    },
+    abilityCon: {
+      name: i18n.localize("DND5E.AbilityCon") || "Constitution",
+      type: 'single',
+      keyPattern: "ability-con",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityCon"
+    },
+    abilityInt: {
+      name: i18n.localize("DND5E.AbilityInt") || "Intelligence",
+      type: 'single',
+      keyPattern: "ability-int",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityInt"
+    },
+    abilityWis: {
+      name: i18n.localize("DND5E.AbilityWis") || "Wisdom",
+      type: 'single',
+      keyPattern: "ability-wis",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityWis"
+    },
+    abilityCha: {
+      name: i18n.localize("DND5E.AbilityCha") || "Charisma",
+      type: 'single',
+      keyPattern: "ability-cha",
+      defaultShowSettingKey: "dnd5e-showDefault-abilityCha"
     },
     activeEffectsSection: {
         name: i18n.localize("DND5E.Effects"),

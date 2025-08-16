@@ -87,7 +87,12 @@
             <p class="notes">Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma</p>
             <div class="container-chips">
                 {{#each settings}}
-                    {{#if (eq key "dnd5e-showDefault-abilities")}}
+                    {{#if (or (eq key "dnd5e-showDefault-abilityStr")
+                               (eq key "dnd5e-showDefault-abilityDex")
+                               (eq key "dnd5e-showDefault-abilityCon")
+                               (eq key "dnd5e-showDefault-abilityInt")
+                               (eq key "dnd5e-showDefault-abilityWis")
+                               (eq key "dnd5e-showDefault-abilityCha"))}}
                         <div class="chip {{#if enabled}}active{{/if}}" 
                              data-value="{{key}}" 
                              data-active="{{enabled}}"
