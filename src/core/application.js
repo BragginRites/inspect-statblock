@@ -633,25 +633,23 @@ class InspectStatblockApp extends Application {
 }
 
 // --- Helper functions for Keybindings & HUD --- //
-export function _openInspectStatblockForTargetedToken() {
-    const targets = Array.from(game.user.targets);
-    if (!targets.length) {
-        ui.notifications.warn("Inspect Statblock: Please target a token.");
-        return;
-    }
-    const token = targets[0];
-    if (!token.actor) {
-        ui.notifications.warn("Inspect Statblock: The targeted token does not have an actor associated.");
+
+/**
+ * Opens or closes the Inspect Statblock for a specific token.
+ * Shared entry point used by the HUD button, keybinding, and other callers.
+ * @param {Token} token - The token placeable to inspect.
+ */
+export function _openInspectStatblockForToken(token) {
+    if (!token || !token.actor) {
+        ui.notifications.warn("Inspect Statblock: Token does not have an actor associated.");
         return;
     }
 
-    // TODO inspect-statblock: Debug logging for manual statblock opening
-    console.log(`${MODULE_ID} | [DEBUG] Manual statblock opening requested:`, {
+    console.log(`${MODULE_ID} | [DEBUG] Opening statblock for token:`, {
         tokenId: token.id,
         tokenName: token.name,
         actorId: token.actor.id,
-        actorName: token.actor.name,
-        stackTrace: new Error().stack?.split('\n').slice(1, 3).join('\n') // Get caller for tracking source
+        actorName: token.actor.name
     });
 
     const existingWindow = Object.values(ui.windows).find(w => 
@@ -667,6 +665,43 @@ export function _openInspectStatblockForTargetedToken() {
     
     console.log(`${MODULE_ID} | [DEBUG] Creating new statblock window for token ${token.id}`);
     new InspectStatblockApp(token.actor, token, { id: `${APP_ID}-${token.id}` }).render(true);
+}
+
+/**
+ * Opens the Inspect Statblock using priority: hovered token → targeted token.
+ * Used by the I keybinding so the GM can just hover and press I.
+ */
+export function _openInspectStatblockForHoveredOrTargetedToken() {
+    // 1. Hovered token (cursor is over it on the canvas)
+    const hovered = canvas.tokens?.hover;
+    if (hovered?.actor) {
+        _openInspectStatblockForToken(hovered);
+        return;
+    }
+
+    // 2. Targeted token
+    const targets = Array.from(game.user.targets);
+    if (targets.length > 0 && targets[0].actor) {
+        _openInspectStatblockForToken(targets[0]);
+        return;
+    }
+
+    ui.notifications.warn("Inspect Statblock: Hover over or target a token first.");
+}
+
+export function _openInspectStatblockForTargetedToken() {
+    const targets = Array.from(game.user.targets);
+    if (!targets.length) {
+        // Fall back to hover logic
+        _openInspectStatblockForHoveredOrTargetedToken();
+        return;
+    }
+    const token = targets[0];
+    if (!token.actor) {
+        ui.notifications.warn("Inspect Statblock: The targeted token does not have an actor associated.");
+        return;
+    }
+    _openInspectStatblockForToken(token);
 }
 
 export function _closeAllInspectStatblockApps() {
@@ -701,20 +736,26 @@ Hooks.on('renderTokenHUD', (app, html, data) => {
     const token = canvas.tokens.get(data._id);
     if (!token || !token.actor) return;
 
+    // v13: html is a raw HTMLElement, not jQuery. Handle both for backwards compat.
+    const htmlEl = html instanceof HTMLElement ? html : html[0];
+
     const buttonId = `${HUD_BUTTON_ID}-${data._id}`;
-    if (html.find(`#${buttonId}`).length > 0) return;
+    if (htmlEl.querySelector(`#${buttonId}`)) return;
 
-    const inspectButton = $(`
-        <div class="control-icon ${HUD_BUTTON_ID}" id="${buttonId}" title="Inspect Statblock (I)">
-            <i class="fas fa-search"></i>
-        </div>
-    `);
+    const inspectButton = document.createElement('div');
+    inspectButton.classList.add('control-icon', HUD_BUTTON_ID);
+    inspectButton.id = buttonId;
+    inspectButton.title = 'Inspect Statblock (I)';
+    inspectButton.innerHTML = '<i class="fas fa-search"></i>';
 
-    html.find('.col.left').append(inspectButton);
-    inspectButton.on('click', (event) => {
-        event.preventDefault();
-        _openInspectStatblockForTargetedToken(); 
-    });
+    const colLeft = htmlEl.querySelector('.col.left');
+    if (colLeft) {
+        colLeft.appendChild(inspectButton);
+        inspectButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            _openInspectStatblockForToken(token);
+        });
+    }
 });
 
 // --- Initialization --- //
@@ -728,9 +769,9 @@ Hooks.once('init', async function() {
     
     game.keybindings.register(MODULE_ID, 'openInspectStatblock', {
         name: 'Inspect Statblock: Open',
-        hint: 'Opens the Inspect Statblock window for the currently targeted token.',
+        hint: 'Opens the Inspect Statblock window for the hovered or targeted token.',
         editable: [{ key: 'KeyI' }],
-        onDown: () => { _openInspectStatblockForTargetedToken(); return true; },
+        onDown: () => { _openInspectStatblockForHoveredOrTargetedToken(); return true; },
         restricted: false, precedence: CONST.KEYBINDING_PRECEDENCE.NORMAL
     });
 
