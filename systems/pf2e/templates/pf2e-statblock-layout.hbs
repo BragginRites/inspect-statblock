@@ -1,0 +1,42 @@
+{{!-- Pathfinder 2e statblock layout. Portrait, AC, movement, health and defenses reuse the dnd5e partials. --}}
+{{#if this.headerInfo}}
+    <div class="creature-header" data-element-key="{{this.headerInfo.nameElementKey}}">
+        {{> "modules/inspect-statblock/systems/pf2e/templates/partials/header.hbs" this.headerInfo}}
+    </div>
+{{/if}}
+
+<div class="token-section">
+    {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/portrait.hbs" this.portraitInfo}}
+
+    <div class="ac-and-movement-container">
+        {{#if this.ac}}
+            <div class="ac-display-wrapper {{#if this.ac.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.ac.elementKey}}">
+                {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/ac.hbs" this.ac}}
+            </div>
+        {{/if}}
+        {{#if this.movement}}
+            <div class="movement-speeds">
+                {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/movement.hbs" this.movement}}
+            </div>
+        {{/if}}
+    </div>
+</div>
+
+{{#if this.health}}
+    <div class="health-section {{#if this.health.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.health.elementKey}}">
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/health.hbs" this.health}}
+    </div>
+{{/if}}
+
+{{> "modules/inspect-statblock/systems/pf2e/templates/partials/attributes.hbs" cells=this.defenseStats columns=4}}
+{{> "modules/inspect-statblock/systems/pf2e/templates/partials/attributes.hbs" cells=this.abilityScores columns=6}}
+
+<hr class="section-divider">
+
+{{> "modules/inspect-statblock/systems/pf2e/templates/partials/item-section.hbs" sectionData=this.effects sectionClass="active-effects" layout="grid" isGM=@root.isGM}}
+
+{{> "modules/inspect-statblock/systems/dnd5e/templates/partials/defenses.hbs" sectionData=this.defenses isGM=@root.isGM}}
+
+{{> "modules/inspect-statblock/systems/pf2e/templates/partials/item-section.hbs" sectionData=this.passiveFeatures sectionClass="passive-features" layout="list" isGM=@root.isGM}}
+
+{{> "modules/inspect-statblock/systems/pf2e/templates/partials/item-section.hbs" sectionData=this.actions sectionClass="active-features" layout="list" isGM=@root.isGM}}

@@ -1,0 +1,25 @@
+{{!-- Effects, passive abilities or actions. Tooltips carry enriched descriptions (escaped into the attribute). --}}
+{{#if sectionData}}
+<div class="statblock-section {{sectionClass}}">
+    <div class="section-title" data-element-key="{{sectionData.elementKey}}">{{sectionData.title}}</div>
+
+    {{#if sectionData.isEmpty}}
+        <div class="section-item-list empty-list-message">
+            {{#if sectionData.isHiddenGM}}<span class="gm-hidden-indicator">HIDDEN</span>{{/if}}
+            {{#if isGM}}None{{else}}??{{/if}}
+        </div>
+    {{else}}
+        {{#if (eq layout "grid")}}<div class="items-grid">{{else}}<ul class="items-list">{{/if}}
+        {{#each sectionData.items}}
+            <{{#if (eq ../layout "grid")}}div{{else}}li{{/if}} class="statblock-item {{#if (eq ../layout "grid")}}effect-tag{{/if}} {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.elementKey}}"
+                {{#if this.descriptionHTML}}data-tooltip="{{this.descriptionHTML}}" data-tooltip-class="pf2e inspect-statblock-tooltip" data-tooltip-direction="UP"{{/if}}>
+                {{#if this.icon}}<img src="{{this.icon}}" class="item-icon" alt="">{{/if}}
+                <span class="item-name">{{this.name}}</span>
+                {{#if this.actionGlyph}}<span class="action-glyph">{{this.actionGlyph}}</span>{{/if}}
+                {{#if this.subText}}<span class="item-subtext">{{this.subText}}</span>{{/if}}
+            </{{#if (eq ../layout "grid")}}div{{else}}li{{/if}}>
+        {{/each}}
+        {{#if (eq layout "grid")}}</div>{{else}}</ul>{{/if}}
+    {{/if}}
+</div>
+{{/if}}

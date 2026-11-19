@@ -1,4 +1,13 @@
 ## [Unreleased]
+### Added
+- **Pathfinder 2e support** (pf2e 7.x, Foundry v13). The statblock shows name, level, rarity, size and traits (ancestry and class for characters), AC, HP, Perception and saves, speeds, attribute modifiers, effects and conditions, immunities/weaknesses/resistances, passive abilities, and actions with their action cost. Every element can be hidden or revealed per actor or token, with the same inheritance and placeholder options as dnd5e.
+  - Defaults for every pf2e element in the Default Visibility menu.
+  - Auto-reveal: an ability is revealed when it's posted to chat, and an immunity, weakness or resistance is revealed when pf2e applies it to damage.
+  - Tooltips show the enriched item description (GM-only secret blocks stay hidden from players), with the usual middle-click pinning.
+  - Generic exploration and downtime activities (Search, Treat Wounds, …) aren't listed as abilities. Unidentified effects keep their name hidden from players.
+  - Not covered: condition immunities aren't auto-revealed, because pf2e drops a condition the creature is immune to before any hook sees it.
+- System handlers can provide their Default Visibility options with `getDefaultSettingGroups()`.
+
 ### Changed
 - **Foundry v13 and v14**: The statblock window, Default Visibility menu and Clear All dialog now use ApplicationV2/DialogV2. Removed jQuery and deprecated globals (`renderTemplate`, `loadTemplates`, `TooltipManager`, `Dialog`, `FormApplication`). Foundry v12 is no longer supported. Targets dnd5e 5.x and 6.x.
 - **Tooltips**: Statblock entries use dnd5e's native rich tooltips. The module no longer replaces dnd5e's item tooltip template or patches tooltip methods for the whole game. Middle-click to pin, drag to move and right-click to dismiss still work.
@@ -23,6 +32,7 @@
 - Temporary effects from items (e.g. Rage) were missing from Active Effects.
 - Clear All missed per-token data stored on unlinked tokens.
 - Removed generic global Handlebars helpers (`test`, `sum`) that could clash with other modules.
+- Auto-reveal on damage never revealed anything on dnd5e 5.x, which records the applied defenses under a different key.
 
 ## [1.0.2] - 2025-08-16
 ### Fixed

@@ -1,0 +1,11 @@
+{{!-- A row of labelled modifiers (ability modifiers, or perception and saves). --}}
+{{#if cells.length}}
+<div class="ability-scores" style="grid-template-columns: repeat({{columns}}, 1fr);">
+    {{#each cells}}
+    <div class="ability {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.elementKey}}">
+        <div class="ability-name">{{this.label}}</div>
+        <div class="ability-value">{{this.value}}</div>
+    </div>
+    {{/each}}
+</div>
+{{/if}}

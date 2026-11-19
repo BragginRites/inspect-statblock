@@ -139,7 +139,8 @@ export const Dnd5eTooltipManager = {
 };
 
 Hooks.once('ready', () => {
-    if (game.system.id === 'dnd5e') Dnd5eTooltipManager.initialize();
+    // The pinning code is system-neutral; pf2e statblock tooltips use it too.
+    if (['dnd5e', 'pf2e'].includes(game.system.id)) Dnd5eTooltipManager.initialize();
 });
 
 export default Dnd5eTooltipManager;

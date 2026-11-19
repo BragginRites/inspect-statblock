@@ -4,6 +4,7 @@
 
 import { MODULE_ID } from './constants.js';
 import { log } from './logger.js';
+import { systemRegistry } from './system-registry.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -74,24 +75,42 @@ export class DefaultVisibilityConfigApp extends HandlebarsApplicationMixin(Appli
     async _prepareContext(options) {
         const context = await super._prepareContext(options);
         const current = game.settings.get(MODULE_ID, 'defaultVisibilitySettings') || {};
-        const isDnd5e = game.system.id === 'dnd5e';
-
         context.systemId = game.system.id;
-        context.groups = isDnd5e ? DND5E_SETTING_GROUPS.map(group => ({
+        context.groups = DefaultVisibilityConfigApp.#settingGroups().map(group => ({
+            label: group.label,
+            hint: group.hint,
+            icon: group.icon,
+            settings: group.settings.map(({ key, label }) => ({ key, label, enabled: current[key] ?? true }))
+        }));
+        context.totalSettings = context.groups.reduce((n, g) => n + g.settings.length, 0);
+        return context;
+    }
+
+    /**
+     * Setting groups for the active system: from the handler's getDefaultSettingGroups()
+     * when it has one, otherwise the built-in D&D 5e list.
+     * @returns {Array<{icon: string, label: string, hint: string, settings: Array<{key: string, label: string}>}>}
+     */
+    static #settingGroups() {
+        const handler = systemRegistry.getHandler(game.system.id);
+        if (typeof handler?.getDefaultSettingGroups === 'function') {
+            try {
+                return handler.getDefaultSettingGroups() ?? [];
+            } catch (err) {
+                log.error('Error reading default setting groups:', err);
+                return [];
+            }
+        }
+        if (game.system.id !== 'dnd5e') return [];
+        return DND5E_SETTING_GROUPS.map(group => ({
             label: `INSPECTSTATBLOCK.DefaultsConfig.Groups.${group.id}.Label`,
             hint: `INSPECTSTATBLOCK.DefaultsConfig.Groups.${group.id}.Hint`,
             icon: group.icon,
-            settings: group.settings.map(id => {
-                const key = `dnd5e-showDefault-${id}`;
-                return {
-                    key,
-                    label: `INSPECTSTATBLOCK.DefaultsConfig.Settings.${id}`,
-                    enabled: current[key] ?? true
-                };
-            })
-        })) : [];
-        context.totalSettings = context.groups.reduce((n, g) => n + g.settings.length, 0);
-        return context;
+            settings: group.settings.map(id => ({
+                key: `dnd5e-showDefault-${id}`,
+                label: `INSPECTSTATBLOCK.DefaultsConfig.Settings.${id}`
+            }))
+        }));
     }
 
     static #setChip(chip, enabled) {

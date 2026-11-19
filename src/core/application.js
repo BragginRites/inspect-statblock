@@ -10,6 +10,9 @@ import { registerCoreSettings } from './settings.js';
 import { InspectStatblockApp } from './statblock-app.js';
 import { getStatblockApps } from './open-apps.js';
 import { ensureDefaultFlags, isResponsibleGM, resolveFlagDocument, toTokenDocument } from './flags.js';
+// System handlers not listed in module.json "esmodules". Each registers itself only
+// when its game system is active.
+import '../../systems/pf2e/pf2e-handler.js';
 
 const HUD_BUTTON_CLASS = 'inspect-statblock-hud-button';
 

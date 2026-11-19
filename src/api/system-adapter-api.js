@@ -97,6 +97,17 @@
  */
 
 /**
+ * Option groups for the Default Visibility form. Optional; without it the form
+ * shows the built-in D&D 5e list on dnd5e and nothing on other systems.
+ * Each setting key is stored in the core 'defaultVisibilitySettings' object
+ * (true = visible to players by default).
+ * @function getDefaultSettingGroups
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @returns {Array<{id: string, icon: string, label: string, hint: string,
+ *   settings: Array<{key: string, label: string}>}>} Labels and hints are localization keys.
+ */
+
+/**
  * Gets the default ability keys for this system (e.g., ['str', 'dex', 'con', 'int', 'wis', 'cha'] for D&D 5e).
  * Used by core for initializing ability-related visibility flags.
  * @function getDefaultAbilityKeys

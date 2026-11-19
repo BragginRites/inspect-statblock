@@ -139,8 +139,10 @@ function _revealsFromDamages(actor, damages) {
         const type = damage?.type;
         if (!type || type === 'none') continue;
         if (damage.active && typeof damage.active === 'object') {
+            // dnd5e 5.x records applied modifications under active.type; older versions at the top level.
+            const applied = (damage.active.type && typeof damage.active.type === 'object') ? damage.active.type : damage.active;
             for (const [flag, category] of Object.entries(ACTIVE_TO_CATEGORY)) {
-                if (damage.active[flag]) reveals.push({ category, value: type });
+                if (applied[flag]) reveals.push({ category, value: type });
             }
         } else {
             for (const [category, trait] of Object.entries(TRAIT_FOR_CATEGORY)) {

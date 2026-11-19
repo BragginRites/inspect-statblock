@@ -1,0 +1,10 @@
+<h1 class="open-portrait is-toggleable-visibility {{#if this.nameIsHiddenGM}}element-hidden-to-players{{/if}}" data-actor-id="{{this.actorId}}" data-element-key="{{this.nameElementKey}}">
+    {{this.name}}
+</h1>
+<h2>
+    {{#each this.parts}}
+        <span class="is-toggleable-visibility {{#if this.isHiddenGM}}element-hidden-to-players{{/if}}" data-element-key="{{this.elementKey}}">{{this.text}}</span>
+    {{else}}
+        <span>&nbsp;</span>
+    {{/each}}
+</h2>

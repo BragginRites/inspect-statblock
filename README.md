@@ -8,6 +8,13 @@ Coffee helps me stay up to 2am to write these modules. Thank you for supporting 
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/bragginrites)
 
+## Supported Systems
+
+- **D&D 5e** (dnd5e 5.x and 6.x)
+- **Pathfinder 2e** (pf2e 7.x on Foundry v13)
+
+Requires Foundry VTT v13 or v14.
+
 ## Other Modules
 
 Check out my other module(s):
@@ -49,6 +56,16 @@ Check out my other module(s):
 5. **Active Effects**: Displays currently active Active Effects. Mouse over for a tooltip.
 6. **Defense Grid**: Clearly displays resistances, immunities, vulnerabilities, and condition immunities.
 7. **Passive Features**: Interactive tooltips for passive abilities. Mouse over for a tooltip.
+8. **Auto-Reveal**: Features are revealed when used, and defenses when they affect damage (both can be turned off in settings).
+
+### Pathfinder 2e
+
+- Header with level, rarity, size and creature traits (ancestry and class for characters).
+- AC, HP, Perception, Fortitude, Reflex and Will, speeds and attribute modifiers.
+- Effects & Conditions (including condition values such as Frightened 2 and remaining duration).
+- Immunities, Weaknesses and Resistances, shown with their values and exceptions.
+- Passive Abilities and Actions & Reactions (with action cost; NPC strikes included).
+- All of it can be hidden or revealed per element, with defaults in **Configure Statblock Defaults**.
 
 ## License
 

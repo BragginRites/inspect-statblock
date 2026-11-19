@@ -43,6 +43,81 @@
       "SpecialDuration": "Special"
     },
 
+    "Pf2e": {
+      "Level": "Level {level}",
+      "Perception": "PER",
+      "Save": {
+        "fortitude": "FORT",
+        "reflex": "REF",
+        "will": "WILL"
+      },
+      "Speed": {
+        "land": "Land",
+        "fly": "Fly",
+        "swim": "Swim",
+        "climb": "Climb",
+        "burrow": "Burrow"
+      },
+      "Defense": {
+        "immunities": "Immunities",
+        "weaknesses": "Weaknesses",
+        "resistances": "Resistances"
+      },
+      "Sections": {
+        "Effects": "Effects & Conditions",
+        "PassiveAbilities": "Passive Abilities",
+        "Actions": "Actions & Reactions"
+      },
+      "Duration": {
+        "Encounter": "Encounter",
+        "Rounds": "{n} rd",
+        "Minutes": "{n} min",
+        "Hours": "{n} hr",
+        "Days": "{n} d"
+      },
+      "UnidentifiedEffect": "Unidentified effect",
+      "DefaultsConfig": {
+        "Groups": {
+          "header": { "Label": "Header", "Hint": "Name, level, rarity, size and traits (ancestry and class for characters)" },
+          "combat": { "Label": "Combat Stats", "Hint": "Armor class, hit points, perception and saving throws" },
+          "movement": { "Label": "Movement", "Hint": "Movement types and speeds" },
+          "abilities": { "Label": "Attribute Modifiers", "Hint": "Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma" },
+          "defenses": { "Label": "Defenses", "Hint": "Immunities (including condition immunities), weaknesses and resistances" },
+          "features": { "Label": "Abilities & Effects", "Hint": "Effects and conditions, passive abilities, and actions" }
+        },
+        "Settings": {
+          "headerName": "Name",
+          "headerLevel": "Level",
+          "headerRarity": "Rarity",
+          "headerSize": "Size",
+          "headerTraits": "Traits/Class",
+          "ac": "Armor Class",
+          "health": "Hit Points",
+          "perception": "Perception",
+          "saveFortitude": "Fortitude",
+          "saveReflex": "Reflex",
+          "saveWill": "Will",
+          "movementLand": "Land",
+          "movementFly": "Fly",
+          "movementSwim": "Swim",
+          "movementClimb": "Climb",
+          "movementBurrow": "Burrow",
+          "abilityStr": "Strength",
+          "abilityDex": "Dexterity",
+          "abilityCon": "Constitution",
+          "abilityInt": "Intelligence",
+          "abilityWis": "Wisdom",
+          "abilityCha": "Charisma",
+          "defenseImmunities": "Immunities",
+          "defenseWeaknesses": "Weaknesses",
+          "defenseResistances": "Resistances",
+          "effectsSection": "Effects & Conditions",
+          "passiveFeaturesSection": "Passive Abilities",
+          "actionsSection": "Actions & Reactions"
+        }
+      }
+    },
+
     "Settings": {
       "DefaultVisibility": {
         "Name": "Default Visibility",
