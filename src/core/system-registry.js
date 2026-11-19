@@ -3,7 +3,8 @@
  * Manages registration and discovery of system-specific handlers.
  */
 
-const MODULE_ID = 'inspect-statblock';
+import { MODULE_ID } from './constants.js';
+import { log } from './logger.js';
 
 /**
  * Registry for managing system-specific handlers.
@@ -43,11 +44,11 @@ export class SystemHandlerRegistry {
         }
 
         if (this.handlers.has(systemId)) {
-            console.warn(`${MODULE_ID} | SystemHandlerRegistry: Overwriting existing handler for system '${systemId}'.`);
+            log.warn(`Overwriting existing handler for system '${systemId}'.`);
         }
 
         this.handlers.set(systemId, handler);
-        console.log(`${MODULE_ID} | SystemHandlerRegistry: Successfully registered handler for system '${systemId}'.`);
+        log.debug(`Registered handler for system '${systemId}'.`);
     }
 
     /**
@@ -57,15 +58,11 @@ export class SystemHandlerRegistry {
      */
     getHandler(systemId) {
         if (!systemId || typeof systemId !== 'string') {
-            console.warn(`${MODULE_ID} | SystemHandlerRegistry.getHandler: Invalid systemId provided.`);
+            log.warn('getHandler: invalid systemId provided.');
             return null;
         }
 
         const handler = this.handlers.get(systemId);
-        if (!handler) {
-            console.log(`${MODULE_ID} | SystemHandlerRegistry: No handler registered for system '${systemId}'.`);
-        }
-        
         return handler || null;
     }
 
@@ -97,7 +94,7 @@ export class SystemHandlerRegistry {
     unregister(systemId) {
         const wasRegistered = this.handlers.delete(systemId);
         if (wasRegistered) {
-            console.log(`${MODULE_ID} | SystemHandlerRegistry: Unregistered handler for system '${systemId}'.`);
+            log.debug(`Unregistered handler for system '${systemId}'.`);
         }
         return wasRegistered;
     }
@@ -124,7 +121,4 @@ export class SystemHandlerRegistry {
  * This should be used throughout the module for all system handler registration and retrieval.
  * @type {SystemHandlerRegistry}
  */
-export const systemRegistry = new SystemHandlerRegistry();
-
-// Log registry creation for debugging
-console.log(`${MODULE_ID} | SystemHandlerRegistry: Registry initialized.`); 
+export const systemRegistry = new SystemHandlerRegistry(); 

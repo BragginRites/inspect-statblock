@@ -2,15 +2,13 @@
 /* Adapted from _archive/dnd5e_reference/statblock_dnd5e_reference.css */
 
 /* Base Application Window Styling */
-.app.window-app.inspect-statblock-app {
-    background: #1a1a1a !important; 
+.application.inspect-statblock-app {
+    background: #1a1a1a !important;
     border: 1px solid #444 !important;
     border-radius: 8px !important;
     box-shadow: 0 0 15px rgba(0,0,0,0.5) !important;
-    color: #ddd; 
-    font-family: "Helvetica Neue", Arial, sans-serif; 
-    width: 400px;
-    height: 80vh;
+    color: #ddd;
+    font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
 /* Window Header Styling */
@@ -29,11 +27,11 @@
     text-shadow: none !important;
 }
 
-.inspect-statblock-app .window-header .header-button.close {
+.inspect-statblock-app .window-header .header-control {
     color: #ddd !important;
     text-shadow: none;
 }
-.inspect-statblock-app .window-header .header-button.close:hover {
+.inspect-statblock-app .window-header .header-control:hover {
     color: #fff !important;
     background: rgba(255,255,255,0.1);
 }
@@ -43,7 +41,9 @@
     background: #1a1a1a !important; 
     padding: 0 !important; /* Remove default Foundry padding */
     color: #ddd;
-    overflow: hidden !important; /* Prevent double scrollbars if wrapper handles it */
+    overflow: hidden !important; /* The content wrapper scrolls instead */
+    display: flex;
+    flex-direction: column;
     border-bottom-left-radius: 7px;
     border-bottom-right-radius: 7px;
 }
@@ -58,6 +58,8 @@
     overflow-x: hidden; /* From reference */
     border-radius: 5px; 
     margin: 4px; /* Small margin to distinguish from window-content edge */
+    flex: 1;
+    min-height: 0;
 }
 
 

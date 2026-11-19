@@ -1,49 +1,29 @@
-const MODULE_ID = 'inspect-statblock';
+/**
+ * @fileoverview Core settings registration.
+ */
 
-// Import the settings menu FormApplication
+import { MODULE_ID, FLAG_KEY } from './constants.js';
+import { log, setDebugEnabled } from './logger.js';
+import { refreshOpenStatblocks } from './open-apps.js';
 import { DefaultVisibilityConfigApp } from './settings-menu.js';
 
-/**
- * Simple FormApplication for the Clear All Flags button
- */
-class ClearAllFlagsApp extends FormApplication {
-    static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
-            id: 'clear-all-flags-dialog',
-            title: 'Clear All Statblock Flags',
-            width: 400,
-            height: 'auto',
-            classes: ['dialog'],
-            submitOnChange: false,
-            closeOnSubmit: true
-        });
-    }
+const { ApplicationV2, DialogV2 } = foundry.applications.api;
 
-    async render(force = false, options = {}) {
-        // Skip the normal render process and show confirmation dialog directly
-        const confirmed = await Dialog.confirm({
-            title: "Clear All Statblock Flags",
-            content: `
-                <div style="margin-bottom: 1rem;">
-                    <p><strong>⚠️ WARNING:</strong> This will permanently remove ALL visibility flags from ALL actors in your world.</p>
-                    <p>This means:</p>
-                    <ul style="margin-left: 1rem;">
-                        <li>All statblock elements will return to their default visibility</li>
-                        <li>Any custom hide/show settings will be lost</li>
-                        <li>This action cannot be undone</li>
-                    </ul>
-                </div>
-                <p><strong>Are you sure you want to continue?</strong></p>
-            `,
-            yes: () => true,
-            no: () => false,
-            defaultYes: false
+/**
+ * Settings-menu entry that only shows a confirmation dialog.
+ * Foundry instantiates the menu type and calls render(), so render is replaced.
+ */
+class ClearAllFlagsApp extends ApplicationV2 {
+    /** @override */
+    async render() {
+        const confirmed = await DialogV2.confirm({
+            window: { title: game.i18n.localize('INSPECTSTATBLOCK.ClearFlags.Title') },
+            content: game.i18n.localize('INSPECTSTATBLOCK.ClearFlags.Content'),
+            modal: true,
+            rejectClose: false,
+            no: { default: true }
         });
-        
-        if (confirmed) {
-            await _clearAllInspectStatblockFlags();
-        }
-        
+        if (confirmed) await _clearAllInspectStatblockFlags();
         return this;
     }
 }
@@ -52,145 +32,115 @@ class ClearAllFlagsApp extends FormApplication {
  * Registers all core settings for the Inspect Statblock module.
  */
 export function registerCoreSettings() {
-    console.log(`${MODULE_ID} | Registering core settings.`);
-
-    // Register the settings menu button
     game.settings.registerMenu(MODULE_ID, 'defaultVisibilityMenu', {
-        name: 'Default Visibility Settings',
-        label: 'Configure Statblock Defaults',
-        hint: 'Set which elements show by default in new statblocks',
-        icon: 'fas fa-eye',
+        name: 'INSPECTSTATBLOCK.Settings.DefaultVisibility.Name',
+        label: 'INSPECTSTATBLOCK.Settings.DefaultVisibility.Label',
+        hint: 'INSPECTSTATBLOCK.Settings.DefaultVisibility.Hint',
+        icon: 'fa-solid fa-eye',
         type: DefaultVisibilityConfigApp,
-        restricted: true // GM only
+        restricted: true
     });
 
-    // Hidden setting to store all default visibility settings as an object
+    // Hidden setting holding all default visibility choices as one object.
     game.settings.register(MODULE_ID, 'defaultVisibilitySettings', {
         scope: 'world',
-        config: false,  // Hidden from normal settings UI
+        config: false,
         type: Object,
         default: {},
-        onChange: (value) => {
-            console.log(`${MODULE_ID} | Default visibility settings updated:`, value);
-            
-            // Refresh all open statblock windows when defaults change
-            Object.values(ui.windows).forEach(app => {
-                if (app.constructor.name === 'InspectStatblockApp') {
-                    console.log(`${MODULE_ID} | Refreshing open statblock window`);
-                    app.render(true);
-                }
-            });
-        }
+        onChange: () => refreshOpenStatblocks()
     });
 
-    // Flag storage mode: per-actor (shared) vs per-token (individual)
-    game.settings.register(MODULE_ID, "flagStorageMode", {
-        name: "Visibility Flag Storage Mode",
-        hint: "Controls whether visibility flags are shared between tokens of the same actor (Per Actor) or stored individually per token (Per Token).",
-        scope: "world",
+    game.settings.register(MODULE_ID, 'flagStorageMode', {
+        name: 'INSPECTSTATBLOCK.Settings.FlagStorageMode.Name',
+        hint: 'INSPECTSTATBLOCK.Settings.FlagStorageMode.Hint',
+        scope: 'world',
         config: true,
         type: String,
         choices: {
-            "per-actor": "Per Actor (Shared - Default)",
-            "per-token": "Per Token (Individual)"
+            'per-actor': 'INSPECTSTATBLOCK.Settings.FlagStorageMode.PerActor',
+            'per-token': 'INSPECTSTATBLOCK.Settings.FlagStorageMode.PerToken'
         },
-        default: "per-actor",
+        default: 'per-actor',
+        onChange: () => refreshOpenStatblocks()
     });
 
-    // Clear all flags button - for testing and resetting module state
     game.settings.registerMenu(MODULE_ID, 'clearAllFlagsMenu', {
-        name: 'Clear All Statblock Flags',
-        label: 'Clear All Flags',
-        hint: '⚠️ WARNING: This will remove ALL visibility flags from ALL actors. This action cannot be undone!',
-        icon: 'fas fa-trash',
+        name: 'INSPECTSTATBLOCK.Settings.ClearFlags.Name',
+        label: 'INSPECTSTATBLOCK.Settings.ClearFlags.Label',
+        hint: 'INSPECTSTATBLOCK.Settings.ClearFlags.Hint',
+        icon: 'fa-solid fa-trash',
         type: ClearAllFlagsApp,
-        restricted: true // GM only
+        restricted: true
     });
 
-    // Auto-reveal behavior toggles
-    game.settings.register(MODULE_ID, "autoRevealOnDamage", {
-        name: "Auto-Reveal Defenses on Damage",
-        hint: "When enabled, taking damage of a type will automatically reveal matching defenses (resistance, immunity, vulnerability).",
-        scope: "world",
+    game.settings.register(MODULE_ID, 'autoRevealOnDamage', {
+        name: 'INSPECTSTATBLOCK.Settings.AutoRevealOnDamage.Name',
+        hint: 'INSPECTSTATBLOCK.Settings.AutoRevealOnDamage.Hint',
+        scope: 'world',
         config: true,
         type: Boolean,
-        default: true,
+        default: true
     });
 
-    game.settings.register(MODULE_ID, "autoRevealOnFeatureUse", {
-        name: "Auto-Reveal Feature on Use",
-        hint: "When enabled, using a feature will automatically reveal it in the statblock.",
-        scope: "world",
+    game.settings.register(MODULE_ID, 'autoRevealOnFeatureUse', {
+        name: 'INSPECTSTATBLOCK.Settings.AutoRevealOnFeatureUse.Name',
+        hint: 'INSPECTSTATBLOCK.Settings.AutoRevealOnFeatureUse.Hint',
+        scope: 'world',
         config: true,
         type: Boolean,
-        default: true,
+        default: true
     });
 
-    // Example setting (can be removed or repurposed later)
-    game.settings.register(MODULE_ID, "enableDebugMode", {
-        name: "Enable Debug Mode (Example)",
-        hint: "Currently does nothing. Placeholder for future debug options.",
-        scope: "client", // Changed to client as it's a debug option often per user
+    game.settings.register(MODULE_ID, 'enableDebugMode', {
+        name: 'INSPECTSTATBLOCK.Settings.DebugMode.Name',
+        hint: 'INSPECTSTATBLOCK.Settings.DebugMode.Hint',
+        scope: 'client',
         config: true,
         type: Boolean,
         default: false,
+        onChange: value => setDebugEnabled(value)
     });
 }
 
 /**
- * Clears all visibility flags from all actors in the world.
- * This is a utility function for resetting the module state.
+ * Removes visibility flags everywhere they can be stored: world actors,
+ * unlinked token actors (ActorDelta), and legacy flags on TokenDocuments.
  */
 async function _clearAllInspectStatblockFlags() {
-    console.log(`${MODULE_ID} | Starting to clear ALL Inspect Statblock data (actors + tokens)`);
-
-    const actors = game.actors?.contents ?? [];
-    const scenes = game.scenes?.contents ?? [];
     let actorsCleared = 0;
     let tokensCleared = 0;
+    const hasFlags = doc => !!doc?.getFlag(MODULE_ID, FLAG_KEY);
 
     try {
-        // Clear on all Actor documents: remove the entire module flag object
-        for (const actor of actors) {
-            // actor.flags is a plain object; ensure the module namespace exists by either
-            // reading flags[MODULE_ID] or getFlag (which initializes proxy accessors in v13)
-            const moduleFlags = actor.flags?.[MODULE_ID] ?? actor.getFlag(MODULE_ID);
-            if (moduleFlags && Object.keys(moduleFlags).length > 0) {
-                await actor.update({ [`flags.${MODULE_ID}`]: null }, { diff: false });
-                // As a fallback for some versions, also try unsetting known sub-keys
-                await actor.unsetFlag(MODULE_ID, 'hiddenElements');
-                actorsCleared++;
-                console.log(`${MODULE_ID} | Cleared module data for actor: ${actor.name}`);
-            }
+        for (const actor of game.actors) {
+            if (!hasFlags(actor)) continue;
+            await actor.unsetFlag(MODULE_ID, FLAG_KEY);
+            actorsCleared++;
         }
 
-        // Clear on all TokenDocuments across all scenes (per-token storage)
-        for (const scene of scenes) {
-            const tokenDocs = scene.tokens?.contents ?? [];
-            for (const token of tokenDocs) {
-                const moduleFlags = token.flags?.[MODULE_ID] ?? token.getFlag?.(MODULE_ID);
-                if (moduleFlags && Object.keys(moduleFlags).length > 0) {
-                    await token.update({ [`flags.${MODULE_ID}`]: null }, { diff: false });
-                    await token.unsetFlag?.(MODULE_ID, 'hiddenElements');
-                    tokensCleared++;
-                    console.log(`${MODULE_ID} | Cleared module data for token: ${token.name} (scene: ${scene.name})`);
+        for (const scene of game.scenes) {
+            for (const tokenDoc of scene.tokens) {
+                let cleared = false;
+                // Older versions wrote per-token reveals onto the TokenDocument itself.
+                if (hasFlags(tokenDoc)) {
+                    await tokenDoc.unsetFlag(MODULE_ID, FLAG_KEY);
+                    cleared = true;
                 }
+                // Unlinked tokens keep per-token flags in their synthetic actor.
+                if (!tokenDoc.actorLink && tokenDoc.delta?.flags?.[MODULE_ID]?.[FLAG_KEY]) {
+                    await tokenDoc.actor?.unsetFlag(MODULE_ID, FLAG_KEY);
+                    cleared = true;
+                }
+                if (cleared) tokensCleared++;
             }
         }
 
-        console.log(`${MODULE_ID} | Cleared Inspect Statblock data from ${actorsCleared} actors and ${tokensCleared} tokens.`);
-
-        ui.notifications.info(`Inspect Statblock: Cleared data for ${actorsCleared} actors and ${tokensCleared} tokens.`);
-
-        // Refresh all open statblock windows
-        Object.values(ui.windows).forEach(app => {
-            if (app.constructor.name === 'InspectStatblockApp') {
-                app.render(true);
-            }
-        });
-
-    } catch (error) {
-        console.error(`${MODULE_ID} | Error clearing Inspect Statblock data:`, error);
-        ui.notifications.error(`Error clearing data: ${error.message}`);
+        ui.notifications.info(game.i18n.format('INSPECTSTATBLOCK.ClearFlags.Done', {
+            actors: actorsCleared, tokens: tokensCleared
+        }));
+        refreshOpenStatblocks();
+    } catch (err) {
+        log.error('Error clearing visibility flags:', err);
+        ui.notifications.error(game.i18n.format('INSPECTSTATBLOCK.ClearFlags.Failed', { error: err.message }));
     }
 }

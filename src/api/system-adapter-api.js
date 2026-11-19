@@ -62,13 +62,38 @@
  */
 
 /**
- * Gets the element keys for items within a specific section (e.g., all active effects, all passive features).
- * Used by core when toggling section headers that should show/hide all items in that section.
+ * Gets the child element keys of a group element (a section header such as
+ * "section-active-effects", or a defense category such as "def-resistances").
+ * Used by core when the GM right-clicks a group: all children are shown or hidden together.
+ * Return an empty array for keys that are not groups.
  * @function getInSectionItemKeys
  * @memberof InspectStatblockAPI.SystemAdapter#
- * @param {string} sectionHeaderKey - The section header key (e.g., "section-active-effects").
+ * @param {string} sectionHeaderKey - The group element key.
  * @param {Actor} actor - The actor document.
- * @returns {Promise<Array<string>>} Array of element keys for items in the specified section.
+ * @param {SIDS.StandardizedStatblockData} [sidsData] - The last rendered SIDS data.
+ * @returns {Promise<Array<string>>} Child element keys.
+ */
+
+/**
+ * Effective hidden state of an element for players, including any inheritance
+ * (e.g. an unflagged item inheriting its section) and default settings.
+ * Optional; without it core treats only an explicit `true` flag as hidden.
+ * @function isElementHidden
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @param {string} elementKey
+ * @param {Record<string, boolean>} hiddenElements - The stored flags.
+ * @returns {boolean}
+ */
+
+/**
+ * Default hidden state for every element of an actor that has no flag yet.
+ * Optional; used to snapshot defaults when a token is placed and when new
+ * elements (items, effects, defenses) appear. Without it no defaults are written.
+ * @function getDefaultHiddenElements
+ * @memberof InspectStatblockAPI.SystemAdapter#
+ * @param {Actor} actor
+ * @param {Record<string, boolean>} current - Flags already stored.
+ * @returns {Record<string, boolean>} Element key → hidden.
  */
 
 /**

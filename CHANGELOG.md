@@ -1,3 +1,29 @@
+## [Unreleased]
+### Changed
+- **Foundry v13 and v14**: The statblock window, Default Visibility menu and Clear All dialog now use ApplicationV2/DialogV2. Removed jQuery and deprecated globals (`renderTemplate`, `loadTemplates`, `TooltipManager`, `Dialog`, `FormApplication`). Foundry v12 is no longer supported. Targets dnd5e 5.x and 6.x.
+- **Tooltips**: Statblock entries use dnd5e's native rich tooltips. The module no longer replaces dnd5e's item tooltip template or patches tooltip methods for the whole game. Middle-click to pin, drag to move and right-click to dismiss still work.
+- **Debug logging**: Console output is off by default. "Enable Debug Logging" (previously a placeholder setting) turns it on.
+- **Code layout**: dnd5e-specific code moved out of core. The dnd5e handler is split into data, visibility and auto-reveal files.
+
+### Fixed
+- Unlinked tokens showed the world actor's HP instead of the token's own HP.
+- HP of 0 was not displayed.
+- Auto-reveal on feature use never worked for features with activities (they use a different element key). It now also works when a player uses the feature.
+- Auto-reveal on use ignored the "Auto-Reveal Features on Use" setting.
+- Auto-reveal on damage revealed resistances that a bypass (e.g. magical weapons) had ignored. It now uses dnd5e's record of which defenses actually applied.
+- Automation hooks ran on every connected client, causing permission errors for players and duplicate writes with several GMs. World-level automation now runs on the active GM only.
+- "Per Token" storage wrote auto-reveals somewhere the statblock never read, so they didn't show.
+- Defense tags appeared visible to the GM while players saw them as hidden (category inheritance was applied to players only).
+- Right-clicking an element hidden only by default did nothing on the first click.
+- Right-clicking the Active Features header didn't toggle its features. Passive Features header used a different rule than the list it toggled.
+- New features never received default visibility (the check failed on dnd5e's item collection), and active features ignored the Active Features default.
+- The statblock didn't refresh when items or effects were added, changed or removed.
+- Show All / Hide All buttons had no tooltip text (missing localization keys).
+- "None" never appeared for the GM on empty sections and defense categories.
+- Temporary effects from items (e.g. Rage) were missing from Active Effects.
+- Clear All missed per-token data stored on unlinked tokens.
+- Removed generic global Handlebars helpers (`test`, `sum`) that could clash with other modules.
+
 ## [1.0.2] - 2025-08-16
 ### Fixed
 - **Visibility Defaults**: Can now set for individual ability scores. Also fixed the bugs generally across the board

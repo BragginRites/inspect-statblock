@@ -3,7 +3,6 @@
 /* Dialog sizing */
 #inspect-statblock-defaults-config {
     min-width: 600px;
-    max-width: 800px;
 }
 
 #inspect-statblock-defaults-config .window-content {
@@ -11,14 +10,14 @@
 }
 
 /* Form header styling */
-form.default-visibility-config .form-header {
+.default-visibility-config .form-header {
     text-align: center;
     margin-bottom: 1.5em;
     padding-bottom: 1em;
     border-bottom: 2px solid var(--color-border-light-primary);
 }
 
-form.default-visibility-config .form-header h2 {
+.default-visibility-config .form-header h2 {
     color: var(--color-text-dark-primary);
     margin-bottom: 0.5em;
     display: flex;
@@ -27,7 +26,7 @@ form.default-visibility-config .form-header h2 {
     gap: 0.5em;
 }
 
-form.default-visibility-config .notes {
+.default-visibility-config .notes {
     color: var(--color-text-dark-secondary);
     font-size: 0.9em;
     margin: 0.25em 0;
@@ -36,14 +35,20 @@ form.default-visibility-config .notes {
 }
 
 /* Toggle All Buttons */
-form.default-visibility-config .button-group {
+.default-visibility-config .button-group {
     display: flex;
     gap: 0.75em;
     margin: 1em 0 1.5em 0;
     justify-content: center;
 }
 
-form.default-visibility-config .toggle-button {
+.default-visibility-config .toggle-button,
+.default-visibility-config .dialog-button {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.default-visibility-config .toggle-button {
     background: var(--color-bg-btn-minor);
     border: 1px solid var(--color-border-light-primary);
     border-radius: 6px;
@@ -57,24 +62,24 @@ form.default-visibility-config .toggle-button {
     font-weight: 500;
 }
 
-form.default-visibility-config .toggle-button:hover {
+.default-visibility-config .toggle-button:hover {
     background: var(--color-bg-btn-minor-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
 
 /* Container Section with dividers */
-form.default-visibility-config .container-section {
+.default-visibility-config .container-section {
     margin: 1.5em 0;
     padding: 1em 0;
     border-top: 1px solid var(--color-border-light-tertiary);
 }
 
-form.default-visibility-config .container-section:first-of-type {
+.default-visibility-config .container-section:first-of-type {
     border-top: none;
 }
 
-form.default-visibility-config .container-section h3 {
+.default-visibility-config .container-section h3 {
     color: var(--color-text-dark-primary);
     margin-bottom: 0.75em;
     font-size: 1.1em;
@@ -82,14 +87,14 @@ form.default-visibility-config .container-section h3 {
 }
 
 /* WORKING CHIPS - ChatGPT's proven pattern */
-form.default-visibility-config .container-chips {
+.default-visibility-config .container-chips {
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 0.5em !important;
     margin: 1em 0 !important;
 }
 
-form.default-visibility-config .container-chips .chip {
+.default-visibility-config .container-chips .chip {
     display: inline-flex !important;
     align-items: center !important;
     padding: 0.4em 0.9em !important;
@@ -102,31 +107,35 @@ form.default-visibility-config .container-chips .chip {
     font-size: 0.9em !important;
     font-weight: 500 !important;
     border: 1px solid transparent !important;
+    width: auto !important;
+    height: auto !important;
+    flex: 0 0 auto !important;
+    line-height: normal !important;
 }
 
-form.default-visibility-config .container-chips .chip:hover {
+.default-visibility-config .container-chips .chip:hover {
     transform: translateY(-2px) !important;
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2) !important;
 }
 
-form.default-visibility-config .container-chips .chip.active {
+.default-visibility-config .container-chips .chip.active {
     background-color: #007bff !important;
     border-color: #0056b3 !important;
     box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3) !important;
 }
 
-form.default-visibility-config .container-chips .chip.active:hover {
+.default-visibility-config .container-chips .chip.active:hover {
     background-color: #0056b3 !important;
     box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4) !important;
 }
 
 /* Hide hidden inputs */
-form.default-visibility-config .chip input[type="hidden"] {
+.default-visibility-config .chip input[type="hidden"] {
     display: none !important;
 }
 
 /* No settings message */
-form.default-visibility-config .no-settings {
+.default-visibility-config .no-settings {
     text-align: center;
     color: var(--color-text-dark-secondary);
     font-style: italic;
@@ -137,7 +146,7 @@ form.default-visibility-config .no-settings {
 }
 
 /* Footer styling */
-form.default-visibility-config .sheet-footer {
+.default-visibility-config .sheet-footer {
     margin-top: 2em;
     border-top: 2px solid var(--color-border-light-primary);
     padding-top: 1em;
@@ -146,7 +155,7 @@ form.default-visibility-config .sheet-footer {
     gap: 0.75em;
 }
 
-form.default-visibility-config .dialog-button {
+.default-visibility-config .dialog-button {
     background: var(--color-bg-btn-minor);
     border: 1px solid var(--color-border-light-primary);
     border-radius: 4px;
@@ -160,7 +169,7 @@ form.default-visibility-config .dialog-button {
     transition: all 0.2s ease;
 }
 
-form.default-visibility-config .dialog-button:hover {
+.default-visibility-config .dialog-button:hover {
     background: var(--color-bg-btn-minor-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);

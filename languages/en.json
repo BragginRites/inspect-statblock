@@ -1,10 +1,136 @@
 {
-    "INSPECTSTATBLOCK": {
-      "MODULE.NAME": "Inspect Statblock",
-      "MODULE.DESCRIPTION": "A module that allows you to inspect the statblock of a token.",
-      "KEYBINDING.OPEN": "Open Statblock Viewer",
-      "NOTIFICATIONS.NO_TOKEN": "Please target a token.",
-      "NOTIFICATIONS.NO_ACTOR": "The targeted token does not have an actor associated."
+  "INSPECTSTATBLOCK": {
+    "WindowTitle": "Inspect Statblock",
+    "SharedWith": "Shared: {name}",
+    "HudButton": "Inspect Statblock (I)",
+    "ButtonTitleShowAll": "Show all elements to players",
+    "ButtonTitleHideAll": "Hide all elements from players",
+
+    "Keybindings": {
+      "Open": {
+        "Name": "Open/Close Statblock",
+        "Hint": "Opens or closes the statblock for the hovered token, or the targeted token if none is hovered."
+      },
+      "CloseAll": {
+        "Name": "Close All Statblocks",
+        "Hint": "Closes all open statblock windows."
+      }
+    },
+
+    "Notifications": {
+      "NoToken": "Inspect Statblock: Hover over or target a token first.",
+      "NoActor": "Inspect Statblock: That token has no actor."
+    },
+
+    "Errors": {
+      "NoActor": "Error: no actor to display.",
+      "NoHandler": "Inspect Statblock: no handler is available for the game system '{system}'.",
+      "NoData": "Error: could not read this actor's data.",
+      "RenderFailed": "Error rendering the statblock. Check the console (F12)."
+    },
+
+    "Sections": {
+      "ActiveEffects": "Active Effects",
+      "Defenses": "Defenses",
+      "PassiveFeatures": "Passive Traits",
+      "ActiveFeatures": "Active Features"
+    },
+
+    "Dnd5e": {
+      "Level": "Level {level}",
+      "Rounds": "{n} rd",
+      "Turns": "{n} turn",
+      "SpecialDuration": "Special"
+    },
+
+    "Settings": {
+      "DefaultVisibility": {
+        "Name": "Default Visibility",
+        "Label": "Configure Statblock Defaults",
+        "Hint": "Choose which statblock elements players can see by default when a token is placed."
+      },
+      "FlagStorageMode": {
+        "Name": "Visibility Storage",
+        "Hint": "Per Actor: tokens of the same actor share what is revealed. Per Token: each unlinked token keeps its own reveals.",
+        "PerActor": "Per Actor (shared)",
+        "PerToken": "Per Token (individual)"
+      },
+      "ClearFlags": {
+        "Name": "Clear All Visibility Data",
+        "Label": "Clear All",
+        "Hint": "Removes every reveal and hide made by this module from all actors and tokens. This cannot be undone."
+      },
+      "AutoRevealOnDamage": {
+        "Name": "Auto-Reveal Defenses on Damage",
+        "Hint": "When damage is applied, reveal any resistance, immunity or vulnerability that affected it."
+      },
+      "AutoRevealOnFeatureUse": {
+        "Name": "Auto-Reveal Features on Use",
+        "Hint": "When a creature uses a feature, reveal it on its statblock."
+      },
+      "DebugMode": {
+        "Name": "Enable Debug Logging",
+        "Hint": "Print detailed Inspect Statblock messages to the browser console."
+      },
+      "PlaceholderMode": {
+        "Name": "Defense Placeholders",
+        "Hint": "How hidden defenses appear to players. Individual: one '??' per hidden defense. Persistent single: always one '??' at the end, so players can't tell whether anything is hidden.",
+        "Individual": "Individual (?? per hidden defense)",
+        "Persistent": "Persistent single (one ?? at the end)"
+      }
+    },
+
+    "ClearFlags": {
+      "Title": "Clear All Visibility Data",
+      "Content": "<p><strong>Warning:</strong> this removes all visibility data from every actor and token in this world.</p><ul><li>Every statblock element returns to its default visibility.</li><li>All manual and automatic reveals are lost.</li><li>This cannot be undone.</li></ul><p>Continue?</p>",
+      "Done": "Inspect Statblock: cleared visibility data from {actors} actors and {tokens} tokens.",
+      "Failed": "Inspect Statblock: error clearing data: {error}"
+    },
+
+    "DefaultsConfig": {
+      "Title": "Default Visibility",
+      "Intro": "Choose which elements players see by default when a token is placed. System:",
+      "ShowAll": "Show All",
+      "HideAll": "Hide All",
+      "Save": "Save",
+      "Cancel": "Cancel",
+      "Saved": "Default visibility saved.",
+      "SaveFailed": "Failed to save default visibility. See the console for details.",
+      "NoSettings": "No default visibility options are available for this system:",
+      "Groups": {
+        "header": { "Label": "Header", "Hint": "Name, challenge rating or level, size and type" },
+        "combat": { "Label": "Combat Stats", "Hint": "Armor class and hit points" },
+        "movement": { "Label": "Movement", "Hint": "Movement types and speeds" },
+        "abilities": { "Label": "Ability Scores", "Hint": "Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma" },
+        "defenses": { "Label": "Defenses", "Hint": "Damage resistances, immunities, vulnerabilities and condition immunities" },
+        "features": { "Label": "Features & Effects", "Hint": "Active effects, passive traits and active features" }
+      },
+      "Settings": {
+        "headerName": "Name",
+        "headerCrLevel": "CR/Level",
+        "headerSize": "Size",
+        "headerType": "Type/Class",
+        "ac": "Armor Class",
+        "health": "Hit Points",
+        "movementWalk": "Walk",
+        "movementFly": "Fly",
+        "movementSwim": "Swim",
+        "movementClimb": "Climb",
+        "movementBurrow": "Burrow",
+        "abilityStr": "Strength",
+        "abilityDex": "Dexterity",
+        "abilityCon": "Constitution",
+        "abilityInt": "Intelligence",
+        "abilityWis": "Wisdom",
+        "abilityCha": "Charisma",
+        "defenseResistances": "Resistances",
+        "defenseImmunities": "Immunities",
+        "defenseVulnerabilities": "Vulnerabilities",
+        "defenseConditions": "Condition Immunities",
+        "activeEffectsSection": "Active Effects",
+        "passiveFeaturesSection": "Passive Traits",
+        "activeFeaturesSection": "Active Features"
+      }
     }
   }
-  
+}

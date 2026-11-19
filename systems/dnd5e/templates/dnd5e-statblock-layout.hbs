@@ -1,4 +1,4 @@
-<!-- templates/core_statblock_layout.hbs -->
+<!-- systems/dnd5e/templates/dnd5e-statblock-layout.hbs -->
 {{!-- Core Statblock Layout: Assembles all the partials with new structure and classes --}}
 
 {{#if this.headerInfo}}
@@ -41,7 +41,7 @@
 {{#if this.abilityScores.length}}
     {{!-- The ability_scores.hbs partial itself should render the <div class="ability-scores"> wrapper --}}
     {{!-- and individual .ability items will handle their own isHiddenGM --}}
-    {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/ability_scores.hbs" abilityScores=this.abilityScores isGM=../this.isGM}}
+    {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/ability_scores.hbs" abilityScores=this.abilityScores isGM=@root.isGM}}
 {{/if}}
 
 <hr class="section-divider">
@@ -50,26 +50,26 @@
 {{#if this.activeEffects}}
     {{#if (or this.activeEffects.items.length this.activeEffects.isEmpty)}}
         {{!-- Use the specific active-effects.hbs partial --}}
-        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/active-effects.hbs" sectionData=this.activeEffects sectionClass="active-effects" isGM=../this.isGM}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/active-effects.hbs" sectionData=this.activeEffects sectionClass="active-effects" isGM=@root.isGM}}
     {{/if}}
 {{/if}}
 
 {{#if this.defenses}}
     {{#if (or this.defenses.items.length this.defenses.isEmpty)}}
         {{!-- Use the specific defenses.hbs partial for the defenses section --}}
-        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/defenses.hbs" sectionData=this.defenses sectionClass="defenses-grid-layout" isGM=../this.isGM}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/defenses.hbs" sectionData=this.defenses sectionClass="defenses-grid-layout" isGM=@root.isGM}}
     {{/if}}
 {{/if}}
 
 {{#if this.passiveFeatures}}
     {{#if (or this.passiveFeatures.items.length this.passiveFeatures.isEmpty)}}
         {{!-- Use the specific passive-features.hbs partial --}}
-        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.passiveFeatures sectionClass="passive-features" isGM=../this.isGM}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.passiveFeatures sectionClass="passive-features" isGM=@root.isGM}}
     {{/if}}
 {{/if}} 
 
 {{#if this.activeFeatures}}
     {{#if (or this.activeFeatures.items.length this.activeFeatures.isEmpty)}}
-        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.activeFeatures sectionClass="active-features" isGM=../this.isGM}}
+        {{> "modules/inspect-statblock/systems/dnd5e/templates/partials/passive-features.hbs" sectionData=this.activeFeatures sectionClass="active-features" isGM=@root.isGM}}
     {{/if}}
 {{/if}}

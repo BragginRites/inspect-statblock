@@ -35,7 +35,13 @@ body[data-light-tooltip="light"] :is(#tooltip, .locked-tooltip).dnd5e-tooltip.in
     display: none;
 }
 
-/** Locked Tooltip **/
+/** Pinned Tooltip (see dnd5e-tooltips.js) **/
+.inspect-statblock-pinned {
+    position: fixed;
+    pointer-events: auto;
+    z-index: var(--z-index-tooltip, 9999);
+}
+
 .locked-tooltip.dnd5e-tooltip.inspect-statblock-tooltip .content::after {
     content: "Right-click to dismiss.";
     display: flex;
